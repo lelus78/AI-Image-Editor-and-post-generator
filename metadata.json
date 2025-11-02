@@ -1,0 +1,5 @@
+{
+  "name": "AI Image Editor and post generator",
+  "description": "An intelligent image editing application that uses AI to remove backgrounds, apply themed backdrops, perform light clean-up, and suggest professional-grade crops based on photographic rules.",
+  "requestFramePermissions": []
+}
