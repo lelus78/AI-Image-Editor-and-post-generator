@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import type { Settings, EditMode, AspectRatio } from '../types';
 import { SparklesIcon, ScissorsIcon, WandIcon } from './IconComponents';
+import { translations } from '../translations';
 
 interface SettingsPanelProps {
   settings: Settings;
@@ -12,19 +13,12 @@ interface SettingsPanelProps {
   setCustomFilterPrompt: (prompt: string) => void;
   onApplyFilter: () => void;
   isImageLoaded: boolean;
+  t: typeof translations.en;
 }
 
 const aspectRatios: AspectRatio[] = ['1:1', '4:5', '3:2', '16:9', '9:16'];
-const filterOptions = [
-    { value: 'none', label: 'Select a Filter' },
-    { value: 'Vintage Film: A classic 70s film look with faded colors, soft contrast, and visible grain.', label: 'Vintage Film' },
-    { value: 'Noir: A high-contrast black and white filter with deep shadows and dramatic lighting.', label: 'Noir' },
-    { value: 'Cyberpunk Glow: A futuristic look with neon teals and magentas, especially in the highlights and shadows.', label: 'Cyberpunk Glow' },
-    { value: 'Golden Hour: Bathes the image in warm, soft, golden light, mimicking sunset.', label: 'Golden Hour' },
-    { value: 'custom', label: 'Custom...' },
-];
 
-export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, setSettings, disabled, selectedFilter, setSelectedFilter, customFilterPrompt, setCustomFilterPrompt, onApplyFilter, isImageLoaded }) => {
+export const SettingsPanel: React.FC<SettingsPanelProps> = ({ t, settings, setSettings, disabled, selectedFilter, setSelectedFilter, customFilterPrompt, setCustomFilterPrompt, onApplyFilter, isImageLoaded }) => {
   const handleModeChange = (mode: EditMode) => {
     setSettings(s => ({ ...s, mode }));
   };
@@ -38,58 +32,89 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, setSetti
     });
   };
 
+  const filterOptions = useMemo(() => [
+    { value: 'none', label: t.filterOptions.none },
+    { value: `${t.filterOptions.vintage}: ${t.filterOptionDescriptions.vintage}`, label: t.filterOptions.vintage },
+    { value: `${t.filterOptions.noir}: ${t.filterOptionDescriptions.noir}`, label: t.filterOptions.noir },
+    { value: `${t.filterOptions.cyberpunk}: ${t.filterOptionDescriptions.cyberpunk}`, label: t.filterOptions.cyberpunk },
+    { value: `${t.filterOptions.goldenHour}: ${t.filterOptionDescriptions.goldenHour}`, label: t.filterOptions.goldenHour },
+    { value: 'custom', label: t.filterOptions.custom },
+  ], [t]);
+
+
   const isFilterApplyDisabled = disabled || !isImageLoaded || selectedFilter === 'none' || (selectedFilter === 'custom' && !customFilterPrompt.trim());
 
   return (
     <div className="bg-gray-800 rounded-2xl p-6 space-y-6 sticky top-24">
       <fieldset disabled={disabled && !isFilterApplyDisabled} className="space-y-6">
         <div>
-          <h3 className="text-lg font-semibold mb-3">1. Editing Mode</h3>
+          <h3 className="text-lg font-semibold mb-3">{t.editingMode}</h3>
           <div className="grid grid-cols-3 gap-3">
             <button
               onClick={() => handleModeChange('cleanup-only')}
               className={`p-3 rounded-lg border-2 transition-colors flex flex-col items-center justify-center ${settings.mode === 'cleanup-only' ? 'bg-indigo-600 border-indigo-500' : 'bg-gray-700 border-gray-600 hover:border-indigo-500'}`}
               >
               <WandIcon className="w-6 h-6 mx-auto mb-2"/>
-              <span className="text-sm">Cleanup Only</span>
+              <span className="text-sm">{t.cleanupOnly}</span>
             </button>
             <button
               onClick={() => handleModeChange('remove-bg')}
               className={`p-3 rounded-lg border-2 transition-colors flex flex-col items-center justify-center ${settings.mode === 'remove-bg' ? 'bg-indigo-600 border-indigo-500' : 'bg-gray-700 border-gray-600 hover:border-indigo-500'}`}
             >
               <ScissorsIcon className="w-6 h-6 mx-auto mb-2"/>
-              <span className="text-sm">Remove BG</span>
+              <span className="text-sm">{t.removeBg}</span>
             </button>
             <button
               onClick={() => handleModeChange('themed-bg')}
               className={`p-3 rounded-lg border-2 transition-colors flex flex-col items-center justify-center ${settings.mode === 'themed-bg' ? 'bg-indigo-600 border-indigo-500' : 'bg-gray-700 border-gray-600 hover:border-indigo-500'}`}
             >
                <SparklesIcon className="w-6 h-6 mx-auto mb-2"/>
-              <span className="text-sm">Themed BG</span>
+              <span className="text-sm">{t.themedBg}</span>
             </button>
           </div>
         </div>
 
         {settings.mode === 'themed-bg' && (
-          <div>
-            <label htmlFor="theme" className="block text-sm font-medium mb-2">Background Theme</label>
-            <textarea
-              id="theme"
-              value={settings.theme}
-              onChange={(e) => setSettings(s => ({ ...s, theme: e.target.value }))}
-              rows={3}
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-              placeholder="e.g., 'A cartoon forest at dawn, soft light, green palette'"
-            />
+          <div className="space-y-4">
+            <div>
+                <label htmlFor="theme-preset" className="block text-sm font-medium mb-2">{t.selectPresetLabel}</label>
+                <select
+                  id="theme-preset"
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setSettings(s => ({ ...s, theme: e.target.value }))
+                    }
+                  }}
+                  className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                >
+                  <option value="">{t.selectPreset}</option>
+                  {Object.keys(t.themePresets).map((key) => (
+                    <option key={key} value={t.themePresets[key as keyof typeof t.themePresets]}>
+                      {t.themePresetLabels[key as keyof typeof t.themePresetLabels]}
+                    </option>
+                  ))}
+                </select>
+            </div>
+            <div>
+              <label htmlFor="theme" className="block text-sm font-medium mb-2">{t.customThemePrompt}</label>
+              <textarea
+                id="theme"
+                value={settings.theme}
+                onChange={(e) => setSettings(s => ({ ...s, theme: e.target.value }))}
+                rows={3}
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                placeholder={t.bgThemePlaceholder}
+              />
+            </div>
           </div>
         )}
 
         <div>
-          <h3 className="text-lg font-semibold mb-3">2. Enhancements</h3>
+          <h3 className="text-lg font-semibold mb-3">{t.enhancements}</h3>
           <div className="space-y-3">
             { settings.mode === 'themed-bg' && (
               <label className="flex items-center justify-between bg-gray-700 p-3 rounded-lg cursor-pointer">
-                <span>Harmonize Subject Style</span>
+                <span>{t.harmonizeStyle}</span>
                  <input
                   type="checkbox"
                   checked={settings.harmonizeStyle}
@@ -101,7 +126,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, setSetti
             )}
             { settings.mode !== 'cleanup-only' && (
               <label className="flex items-center justify-between bg-gray-700 p-3 rounded-lg cursor-pointer">
-                <span>Light Cleanup</span>
+                <span>{t.lightCleanup}</span>
                 <input
                   type="checkbox"
                   checked={settings.lightCleanup}
@@ -112,7 +137,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, setSetti
               </label>
             )}
             <label className="flex items-center justify-between bg-gray-700 p-3 rounded-lg cursor-pointer">
-              <span>Auto-Crop Suggestions</span>
+              <span>{t.autoCropSuggestions}</span>
               <input
                 type="checkbox"
                 checked={settings.autoCrop}
@@ -126,7 +151,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, setSetti
 
         {settings.autoCrop && (
           <div>
-            <h3 className="text-lg font-semibold mb-3">3. Auto-Crop Ratios</h3>
+            <h3 className="text-lg font-semibold mb-3">{t.autoCropRatios}</h3>
             <div className="flex flex-wrap gap-2">
               {aspectRatios.map(ratio => (
                 <button
@@ -144,9 +169,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, setSetti
       
       {/* AI Filters Section */}
       <div className="border-t border-gray-700 pt-6 space-y-4">
-          <h3 className="text-lg font-semibold">4. AI Filters</h3>
+          <h3 className="text-lg font-semibold">{t.aiFilters}</h3>
           <div>
-            <label htmlFor="ai-filter" className="block text-sm font-medium mb-2">Filter Style</label>
+            <label htmlFor="ai-filter" className="block text-sm font-medium mb-2">{t.filterStyle}</label>
             <select
                 id="ai-filter"
                 value={selectedFilter}
@@ -159,14 +184,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, setSetti
           </div>
           {selectedFilter === 'custom' && (
               <div>
-                  <label htmlFor="custom-filter-prompt" className="block text-sm font-medium mb-2">Custom Filter Prompt</label>
+                  <label htmlFor="custom-filter-prompt" className="block text-sm font-medium mb-2">{t.customFilterPrompt}</label>
                   <textarea
                       id="custom-filter-prompt"
                       value={customFilterPrompt}
                       onChange={(e) => setCustomFilterPrompt(e.target.value)}
                       rows={2}
                       className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition disabled:opacity-50"
-                      placeholder="e.g., 'A dreamy, ethereal glow with high saturation'"
+                      placeholder={t.customFilterPlaceholder}
                       disabled={disabled || !isImageLoaded}
                   />
               </div>
@@ -177,7 +202,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, setSetti
             className="w-full flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
               <WandIcon className="w-5 h-5" />
-              Apply Filter
+              {t.applyFilter}
           </button>
       </div>
 

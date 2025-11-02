@@ -7,9 +7,23 @@ import { CollageCreator } from './components/CollageCreator';
 import { SocialPostGenerator } from './components/SocialPostGenerator';
 import { MakerWorldPostGenerator } from './components/MakerWorldPostGenerator';
 import { Loader } from './components/Loader';
-import { UploadIcon } from './components/IconComponents';
+import { LanguageSwitcher } from './components/LanguageSwitcher';
+import { UploadIcon, TrashIcon } from './components/IconComponents';
 import type { Settings, ImageResult, SocialPost, MakerWorldPost } from './types';
 import { runImageEditing, runAutoCrop, applyAIFilter, generateCollage, generateSocialPosts, generateImageReport, generateMakerWorldPost } from './services/geminiService';
+import { usePersistentState } from './hooks/usePersistentState';
+import { translations } from './translations';
+
+const initialSettings: Settings = {
+    mode: 'themed-bg',
+    theme: 'A vibrant, abstract background with swirling colors',
+    harmonizeStyle: true,
+    lightCleanup: true,
+    autoCrop: true,
+    aspectRatios: ['1:1', '16:9'],
+};
+
+const initialCollageTheme = 'A futuristic cityscape at night';
 
 const App: React.FC = () => {
     const [images, setImages] = useState<File[]>([]);
@@ -17,15 +31,17 @@ const App: React.FC = () => {
     const [imageResults, setImageResults] = useState<Record<string, ImageResult>>({});
     const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [processingMessage, setProcessingMessage] = useState('');
 
-    const [settings, setSettings] = useState<Settings>({
-        mode: 'themed-bg',
-        theme: 'A vibrant, abstract background with swirling colors',
-        harmonizeStyle: true,
-        lightCleanup: true,
-        autoCrop: true,
-        aspectRatios: ['1:1', '16:9'],
-    });
+    const [settings, setSettings] = useState<Settings>(initialSettings);
+
+    // Language States with persistence
+    const [uiLanguage, setUiLanguage] = usePersistentState<'en' | 'it'>('uiLanguage', 'en');
+    const [socialPostLanguage, setSocialPostLanguage] = usePersistentState<'en' | 'it'>('socialPostLanguage', 'en');
+    const [makerWorldPostLanguage, setMakerWorldPostLanguage] = usePersistentState<'en' | 'it'>('makerWorldPostLanguage', 'en');
+    
+    // Translations object
+    const t = translations[uiLanguage];
 
     // Filter states
     const [selectedFilter, setSelectedFilter] = useState('none');
@@ -33,7 +49,7 @@ const App: React.FC = () => {
 
     // Collage states
     const [selectedCollageIndices, setSelectedCollageIndices] = useState<number[]>([]);
-    const [collageTheme, setCollageTheme] = useState('A futuristic cityscape at night');
+    const [collageTheme, setCollageTheme] = useState(initialCollageTheme);
     const [collageResultUrl, setCollageResultUrl] = useState<string | null>(null);
     const [isCreatingCollage, setIsCreatingCollage] = useState(false);
     const [collageEnhancedTheme, setCollageEnhancedTheme] = useState<string | null>(null);
@@ -41,12 +57,10 @@ const App: React.FC = () => {
     // Social Post states
     const [socialPosts, setSocialPosts] = useState<SocialPost[]>([]);
     const [isGeneratingPosts, setIsGeneratingPosts] = useState(false);
-    const [socialPostLanguage, setSocialPostLanguage] = useState<'en' | 'it'>('en');
 
     // MakerWorld Post states
     const [makerWorldPost, setMakerWorldPost] = useState<MakerWorldPost | null>(null);
     const [isGeneratingMakerWorldPost, setIsGeneratingMakerWorldPost] = useState(false);
-    const [makerWorldPostLanguage, setMakerWorldPostLanguage] = useState<'en' | 'it'>('en');
 
     const onDrop = useCallback((acceptedFiles: File[]) => {
         const imageFiles = acceptedFiles.filter(file => file.type.startsWith('image/'));
@@ -58,6 +72,60 @@ const App: React.FC = () => {
     const currentImage = useMemo(() => images[currentIndex], [images, currentIndex]);
     const currentImageResult = useMemo(() => imageResults[currentImage?.name], [imageResults, currentImage]);
 
+    const processSingleImage = async (image: File) => {
+        const updateImageResult = (imageFile: File, data: Partial<ImageResult>) => {
+            setImageResults(prev => ({
+                ...prev,
+                [imageFile.name]: {
+                    ...prev[imageFile.name],
+                    original: prev[imageFile.name]?.original || URL.createObjectURL(imageFile),
+                    cropProposals: prev[imageFile.name]?.cropProposals || [],
+                    ...data,
+                },
+            }));
+        };
+
+        try {
+            const editedImageUrl = await runImageEditing(image, settings);
+
+            const resultUpdate: Partial<ImageResult> = {};
+            if (settings.mode === 'cleanup-only') resultUpdate.cleaned = editedImageUrl;
+            if (settings.mode === 'remove-bg') resultUpdate.removedBg = editedImageUrl;
+            if (settings.mode === 'themed-bg') {
+                resultUpdate.themedBg = editedImageUrl;
+                resultUpdate.enhancedTheme = settings.theme;
+            }
+            updateImageResult(image, resultUpdate);
+
+            const report = await generateImageReport(image, settings);
+            updateImageResult(image, { report });
+
+            if (settings.autoCrop) {
+                const cropProposals = await runAutoCrop(editedImageUrl, settings.aspectRatios);
+                updateImageResult(image, { cropProposals });
+            }
+        } catch (e: any) {
+            const errorMessage = `Error processing image "${image.name}": ${e.message}`;
+            setError(errorMessage);
+            console.error(e);
+            // Stop further processing on error for this image
+            throw e;
+        }
+    };
+
+    const handleProcessCurrentImage = async () => {
+        if (!currentImage) return;
+
+        setIsProcessing(true);
+        setProcessingMessage(t.processingSingle);
+        setError(null);
+        
+        await processSingleImage(currentImage).catch(() => {});
+
+        setIsProcessing(false);
+        setProcessingMessage('');
+    };
+
     const handleProcessImages = async () => {
         if (images.length === 0) return;
     
@@ -65,52 +133,20 @@ const App: React.FC = () => {
         setError(null);
     
         for (const [index, image] of images.entries()) {
-            setCurrentIndex(index); // Update UI to show which image is being processed
-    
-            const updateImageResult = (imageFile: File, data: Partial<ImageResult>) => {
-                setImageResults(prev => ({
-                    ...prev,
-                    [imageFile.name]: {
-                        ...prev[imageFile.name],
-                        original: prev[imageFile.name]?.original || URL.createObjectURL(imageFile),
-                        cropProposals: prev[imageFile.name]?.cropProposals || [],
-                        ...data,
-                    },
-                }));
-            };
-    
+            setCurrentIndex(index); 
+            setProcessingMessage(t.processing(index + 1, images.length));
             try {
-                const editedImageUrl = await runImageEditing(image, settings);
-    
-                const resultUpdate: Partial<ImageResult> = {};
-                if (settings.mode === 'cleanup-only') resultUpdate.cleaned = editedImageUrl;
-                if (settings.mode === 'remove-bg') resultUpdate.removedBg = editedImageUrl;
-                if (settings.mode === 'themed-bg') {
-                    resultUpdate.themedBg = editedImageUrl;
-                    resultUpdate.enhancedTheme = settings.theme; // Placeholder
-                }
-                updateImageResult(image, resultUpdate);
-
-                // Generate the synthetic report
-                const report = await generateImageReport(image, settings);
-                updateImageResult(image, { report });
-    
-                if (settings.autoCrop) {
-                    // Always crop the newly edited image for consistency
-                    const cropProposals = await runAutoCrop(editedImageUrl, settings.aspectRatios);
-                    updateImageResult(image, { cropProposals });
-                }
-    
-            } catch (e: any) {
-                const errorMessage = `Error processing image "${image.name}": ${e.message}`;
-                setError(errorMessage);
-                console.error(e);
-                // Continue to the next image even if one fails
+                await processSingleImage(image);
+            } catch (e) {
+                // The error is already set by processSingleImage.
+                // We stop the batch if one image fails.
+                break;
             }
         }
     
         setIsProcessing(false);
-        setCurrentIndex(0); // Reset to the first image for review
+        setProcessingMessage('');
+        setCurrentIndex(0); 
     };
     
     const onApplyFilter = async () => {
@@ -118,7 +154,7 @@ const App: React.FC = () => {
         
         const filterPrompt = selectedFilter === 'custom'
             ? customFilterPrompt
-            : filterOptions.find(f => f.value === selectedFilter)?.value || '';
+            : selectedFilter;
 
         if (!filterPrompt.trim()) return;
         
@@ -179,7 +215,8 @@ const App: React.FC = () => {
         try {
             const posts = await generateSocialPosts(currentImage, context, language);
             setSocialPosts(posts);
-        } catch (e: any) {
+        } catch (e: any)
+{
             setError(`An error occurred during post generation: ${e.message}`);
             console.error(e);
         } finally {
@@ -212,32 +249,81 @@ const App: React.FC = () => {
         );
     };
 
+    const handleReset = () => {
+        // Reset all relevant states to their initial values
+        setImages([]);
+        setCurrentIndex(0);
+        setImageResults({});
+        setIsProcessing(false);
+        setError(null);
+        setProcessingMessage('');
+        setSettings(initialSettings);
+        setSelectedFilter('none');
+        setCustomFilterPrompt('');
+        setSelectedCollageIndices([]);
+        setCollageTheme(initialCollageTheme);
+        setCollageResultUrl(null);
+        setIsCreatingCollage(false);
+        setCollageEnhancedTheme(null);
+        setSocialPosts([]);
+        setIsGeneratingPosts(false);
+        setMakerWorldPost(null);
+        setIsGeneratingMakerWorldPost(false);
+    };
+
     const isAnythingProcessing = isProcessing || isCreatingCollage || isGeneratingPosts || isGeneratingMakerWorldPost;
     
-    const processButtonText = useMemo(() => {
-        if (isProcessing) {
-            return `Processing ${currentIndex + 1}/${images.length}...`;
-        }
-        if (images.length > 1) {
-            return `Run Process on All (${images.length})`;
-        }
-        return "Run Process";
-    }, [isProcessing, images.length, currentIndex]);
-
-
     return (
         <div className="bg-gray-900 text-white min-h-screen font-sans">
             <header className="bg-gray-800/50 backdrop-blur-sm sticky top-0 z-10 p-4 border-b border-gray-700">
                 <div className="container mx-auto flex justify-between items-center">
-                    <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-500">Gemini Image Studio</h1>
-                    <button
-                        onClick={handleProcessImages}
-                        disabled={isAnythingProcessing || images.length === 0}
-                        className="flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 text-white font-bold py-2 px-6 rounded-lg transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {isProcessing ? <Loader /> : '✨'}
-                        <span>{processButtonText}</span>
-                    </button>
+                    <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-500">{t.appTitle}</h1>
+                    <div className="flex items-center gap-4">
+                        <div className="w-40">
+                            <LanguageSwitcher 
+                                language={uiLanguage} 
+                                setLanguage={setUiLanguage} 
+                                disabled={isAnythingProcessing}
+                            />
+                        </div>
+                        {isAnythingProcessing ? (
+                            <div className="flex items-center justify-center gap-2 bg-gray-700 text-white font-bold py-2 px-6 rounded-lg min-w-[160px]">
+                                <Loader />
+                                <span>{processingMessage || t.processingGeneric}</span>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2">
+                                {images.length > 0 && (
+                                    <button
+                                        onClick={handleProcessCurrentImage}
+                                        disabled={isAnythingProcessing}
+                                        className="flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        ✨ <span>{t.runProcessCurrent}</span>
+                                    </button>
+                                )}
+                                {images.length > 1 && (
+                                    <button
+                                        onClick={handleProcessImages}
+                                        disabled={isAnythingProcessing}
+                                        className="flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        🚀 <span>{t.runProcessOnAllShort(images.length)}</span>
+                                    </button>
+                                )}
+                                {images.length > 0 && (
+                                    <button
+                                        onClick={handleReset}
+                                        disabled={isAnythingProcessing}
+                                        className="bg-red-800 hover:bg-red-700 text-white p-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        aria-label={t.startOver}
+                                    >
+                                        <TrashIcon className="w-5 h-5" />
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </header>
             
@@ -247,8 +333,8 @@ const App: React.FC = () => {
                         <input {...getInputProps()} />
                         <div className="text-center">
                             <UploadIcon className="mx-auto h-12 w-12 text-gray-500" />
-                            <h3 className="mt-2 text-lg font-semibold text-gray-300">Drop images here or click to upload</h3>
-                            <p className="mt-1 text-sm text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                            <h3 className="mt-2 text-lg font-semibold text-gray-300">{t.uploadTitle}</h3>
+                            <p className="mt-1 text-sm text-gray-500">{t.uploadSubtitle}</p>
                         </div>
                     </div>
                 ) : (
@@ -256,6 +342,7 @@ const App: React.FC = () => {
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
                             <div className="lg:col-span-1">
                                 <SettingsPanel 
+                                    t={t}
                                     settings={settings} 
                                     setSettings={setSettings}
                                     disabled={isAnythingProcessing}
@@ -269,15 +356,17 @@ const App: React.FC = () => {
                             </div>
                             <div className="lg:col-span-2">
                                 <ImageViewer
+                                    t={t}
                                     imageResult={currentImageResult}
                                     originalImage={currentImage}
-                                    onRegenerateTheme={handleProcessImages} // Can be refined to only regen theme
+                                    onRegenerateTheme={handleProcessCurrentImage} 
                                     isProcessing={isProcessing}
                                 />
                             </div>
                         </div>
                         
                         <CollageCreator 
+                            t={t}
                             theme={collageTheme}
                             setTheme={setCollageTheme}
                             onGenerate={handleGenerateCollage}
@@ -288,6 +377,7 @@ const App: React.FC = () => {
                         />
 
                         <SocialPostGenerator
+                          t={t}
                           onGenerate={handleGeneratePosts}
                           posts={socialPosts}
                           isProcessing={isGeneratingPosts}
@@ -297,6 +387,7 @@ const App: React.FC = () => {
                         />
 
                         <MakerWorldPostGenerator
+                          t={t}
                           onGenerate={handleGenerateMakerWorldPost}
                           post={makerWorldPost}
                           isProcessing={isGeneratingMakerWorldPost}
@@ -313,6 +404,7 @@ const App: React.FC = () => {
                 <footer className="sticky bottom-0 bg-gray-900/80 backdrop-blur-sm p-4 border-t border-gray-800">
                     <div className="container mx-auto">
                         <ImageThumbnailStrip 
+                            t={t}
                             images={images} 
                             currentIndex={currentIndex} 
                             onSelect={setCurrentIndex}
@@ -326,14 +418,5 @@ const App: React.FC = () => {
         </div>
     );
 };
-
-const filterOptions = [
-    { value: 'none', label: 'Select a Filter' },
-    { value: 'Vintage Film: A classic 70s film look with faded colors, soft contrast, and visible grain.', label: 'Vintage Film' },
-    { value: 'Noir: A high-contrast black and white filter with deep shadows and dramatic lighting.', label: 'Noir' },
-    { value: 'Cyberpunk Glow: A futuristic look with neon teals and magentas, especially in the highlights and shadows.', label: 'Cyberpunk Glow' },
-    { value: 'Golden Hour: Bathes the image in warm, soft, golden light, mimicking sunset.', label: 'Golden Hour' },
-    { value: 'custom', label: 'Custom...' },
-];
 
 export default App;

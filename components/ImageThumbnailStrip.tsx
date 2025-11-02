@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
+import { translations } from '../translations';
 
 interface ImageThumbnailStripProps {
   images: File[];
@@ -7,9 +8,10 @@ interface ImageThumbnailStripProps {
   disabled: boolean;
   selectedIndices: number[];
   onToggleSelection: (index: number) => void;
+  t: typeof translations.en;
 }
 
-export const ImageThumbnailStrip: React.FC<ImageThumbnailStripProps> = ({ images, currentIndex, onSelect, disabled, selectedIndices, onToggleSelection }) => {
+export const ImageThumbnailStrip: React.FC<ImageThumbnailStripProps> = ({ t, images, currentIndex, onSelect, disabled, selectedIndices, onToggleSelection }) => {
   const imageUrls = useMemo(() => images.map(file => URL.createObjectURL(file)), [images]);
 
   useEffect(() => {
@@ -22,8 +24,8 @@ export const ImageThumbnailStrip: React.FC<ImageThumbnailStripProps> = ({ images
   return (
     <div className="bg-gray-800 rounded-2xl p-4">
       <div className="flex justify-between items-center mb-3">
-        <h3 className="text-sm font-semibold text-gray-400">Image Queue</h3>
-        <p className="text-xs text-gray-500">Select images for collage</p>
+        <h3 className="text-sm font-semibold text-gray-400">{t.imageQueue}</h3>
+        <p className="text-xs text-gray-500">{t.selectForCollage}</p>
       </div>
       <div className="flex space-x-3 overflow-x-auto pb-2">
         {images.map((image, index) => {

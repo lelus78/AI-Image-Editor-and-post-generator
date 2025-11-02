@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Modality, Type, GenerateContentResponse, Part } from "@google/genai";
 import type { Settings, AspectRatio, CropProposal, SocialPost, Report, MakerWorldPost } from '../types';
 
@@ -42,55 +43,78 @@ const base64ToGenerativePart = (base64Url: string): Part => {
     };
 };
 
-const buildImageEditingPrompt = (settings: Settings): {text: string}[] => {
-    const prompt = [`You are an expert photo editor. Your task is to edit the user's image based on their specifications.`];
+const buildImageEditingPrompt = (settings: Settings): string => {
+    let task: string;
 
     switch (settings.mode) {
         case 'cleanup-only':
-            prompt.push('Task: Perform a "cleanup" on the image. This means removing any minor blemishes, dust, or scratches. Do not make any other changes.');
+            task = `Perform a light cleanup on the image: remove any minor blemishes, dust, or scratches.`;
             break;
         case 'remove-bg':
-            prompt.push('Task: Remove the background from the image, leaving only the main subject. The output should be a transparent PNG.');
+            task = `Remove the background from the image, leaving the main subject on a transparent background.`;
+            if (settings.lightCleanup) {
+                task += ` Also perform a light cleanup on the subject, removing minor imperfections.`;
+            }
             break;
         case 'themed-bg':
-            prompt.push(`Task: Replace the background of the image with a new, themed background. The theme is: "${settings.theme}".`);
+            task = `Replace the background of the image with a new one based on this theme: "${settings.theme}".`;
             if (settings.harmonizeStyle) {
-                prompt.push('Additionally, harmonize the style of the main subject to seamlessly blend with the new background. Adjust lighting, color tones, and textures of the subject as needed to match the artistic style of the background.');
+                task += ` Adjust the subject's lighting and color to blend seamlessly with the new background.`;
+            }
+            if (settings.lightCleanup) {
+                task += ` Also perform a light cleanup on the subject, removing minor imperfections.`;
             }
             break;
     }
 
-    if (settings.lightCleanup && settings.mode !== 'cleanup-only') {
-        prompt.push('Enhancement: Also perform a light cleanup on the main subject, removing minor blemishes or imperfections.');
-    }
+    const safetyInstruction = `CRITICAL: Do not alter the facial features, identity, or expression of any person in the photo. The subject's appearance must remain identical to the original.`;
     
-    prompt.push('Return only the edited image. Do not return any text, only the image data.');
-
-    return prompt.map(p => ({ text: p }));
+    return `${task} ${safetyInstruction}`;
 };
 
 export const runImageEditing = async (image: File, settings: Settings) => {
     const imagePart = await fileToGenerativePart(image);
-    const promptParts = buildImageEditingPrompt(settings);
+    const promptString = buildImageEditingPrompt(settings);
+    const textPart = { text: promptString };
 
     const response: GenerateContentResponse = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: {
-            parts: [imagePart, ...promptParts],
+            parts: [imagePart, textPart],
         },
         config: {
             responseModalities: [Modality.IMAGE],
         },
     });
 
-    const resultPart = response.candidates?.[0]?.content?.parts?.[0];
+    if (response.promptFeedback?.blockReason) {
+        console.error("Image generation blocked by prompt feedback. Full API response:", JSON.stringify(response, null, 2));
+        const message = response.promptFeedback.blockReasonMessage || `Request was blocked due to: ${response.promptFeedback.blockReason}. This may be due to the input image violating safety policies.`;
+        throw new Error(message);
+    }
+
+    const candidate = response.candidates?.[0];
+    const resultPart = candidate?.content?.parts?.[0];
+
     if (resultPart?.inlineData) {
         const mimeType = resultPart.inlineData.mimeType;
         const data = resultPart.inlineData.data;
         return `data:${mimeType};base64,${data}`;
     }
     
-    throw new Error('No image was generated.');
+    console.error("Image generation failed. Full API response:", JSON.stringify(response, null, 2));
+    
+    const finishReason = candidate?.finishReason;
+    let errorMessage = 'No image was generated.';
+    if (finishReason === 'SAFETY') {
+        errorMessage = 'Image generation failed due to safety policies. Please try a different image or prompt.';
+    } else if (finishReason === 'IMAGE_OTHER' || finishReason === 'RECITATION' || finishReason === 'OTHER') {
+        errorMessage = `Image generation failed (${finishReason}). This can happen with complex instructions. Try simplifying the theme or using a different image.`;
+    } else if (finishReason && finishReason !== 'STOP') {
+        errorMessage = `Image generation failed with reason: ${finishReason}.`
+    }
+
+    throw new Error(errorMessage);
 };
 
 const extractJsonFromText = (text: string): any => {
@@ -122,12 +146,7 @@ export const runAutoCrop = async (image: File | string, aspectRatios: AspectRati
 
     // --- Step 1: Generate Cropped Images ---
     const imageGenPrompt = {
-        text: `You are an expert photo editor. Your task is to analyze the provided image and generate the best possible crops for the specified aspect ratios.
-Follow these instructions:
-1. For each aspect ratio in this list: [${aspectRatios.join(', ')}], identify and generate the best crop based on photographic rules.
-2. Return each of these cropped images as separate image parts in your response.
-3. The order of the returned images must match the order of the aspect ratios in the list: [${aspectRatios.join(', ')}].
-4. Do not return any text, only the images.`
+        text: `Generate the best possible crop for each of the following aspect ratios: [${aspectRatios.join(', ')}]. Base the crops on photographic composition rules. Return only the cropped images, in the same order as the requested ratios.`
     };
 
     const imageGenResponse = await ai.models.generateContent({
@@ -138,9 +157,19 @@ Follow these instructions:
         },
     });
 
+    if (imageGenResponse.promptFeedback?.blockReason) {
+        console.error("Auto-crop image generation blocked by prompt feedback. Full API response:", JSON.stringify(imageGenResponse, null, 2));
+        const message = imageGenResponse.promptFeedback.blockReasonMessage || `Request for auto-crop was blocked due to: ${imageGenResponse.promptFeedback.blockReason}. This may be due to the input image violating safety policies.`;
+        throw new Error(message);
+    }
+
     const generatedImageParts = imageGenResponse.candidates?.[0]?.content?.parts?.filter(p => p.inlineData) || [];
 
     if (generatedImageParts.length === 0) {
+        const finishReason = imageGenResponse.candidates?.[0]?.finishReason;
+        if(finishReason && finishReason !== 'STOP') {
+            throw new Error(`Auto-crop failed. The model stopped with reason: ${finishReason}.`);
+        }
         throw new Error('Model did not return any cropped images.');
     }
 
@@ -175,9 +204,10 @@ Example JSON structure for two crops:
         contents: { parts: [imageToCropPart, ...generatedImageParts, analysisPrompt] },
     });
 
-    const analysisText = analysisResponse.text.trim();
+    const analysisText = analysisResponse.text?.trim();
     if (!analysisText) {
-        throw new Error("The analysis model did not return any text.");
+        console.error("The analysis model did not return any text. Full response:", analysisResponse);
+        throw new Error("The analysis model did not return any text, which may be due to a safety filter.");
     }
 
     const parsed = extractJsonFromText(analysisText);
@@ -224,16 +254,26 @@ export const applyAIFilter = async (image: File, filterPrompt: string) => {
         }),
     ]);
     
+    if (editResponse.promptFeedback?.blockReason) {
+        console.error("AI filter image generation blocked by prompt feedback. Full API response:", JSON.stringify(editResponse, null, 2));
+        const message = editResponse.promptFeedback.blockReasonMessage || `Request for AI filter was blocked due to: ${editResponse.promptFeedback.blockReason}. This may be due to the input image violating safety policies.`;
+        throw new Error(message);
+    }
+    
     const resultPart = editResponse.candidates?.[0]?.content?.parts?.[0];
     const imageUrl = resultPart?.inlineData ? `data:${resultPart.inlineData.mimeType};base64,${resultPart.inlineData.data}` : null;
     
     if (!imageUrl) {
+        const finishReason = editResponse.candidates?.[0]?.finishReason;
+        if(finishReason && finishReason !== 'STOP') {
+            throw new Error(`Applying AI filter failed. The model stopped with reason: ${finishReason}.`);
+        }
         throw new Error('No image was generated for the filter.');
     }
 
     return {
         imageUrl,
-        enhancedPrompt: promptResponse.text.trim(),
+        enhancedPrompt: promptResponse.text?.trim() ?? '',
     };
 };
 
@@ -260,16 +300,26 @@ export const generateCollage = async (images: File[], theme: string) => {
         })
     ]);
 
+    if (collageResponse.promptFeedback?.blockReason) {
+        console.error("Collage generation blocked by prompt feedback. Full API response:", JSON.stringify(collageResponse, null, 2));
+        const message = collageResponse.promptFeedback.blockReasonMessage || `Request for collage was blocked due to: ${collageResponse.promptFeedback.blockReason}. This may be due to the input violating safety policies.`;
+        throw new Error(message);
+    }
+
     const resultPart = collageResponse.candidates?.[0]?.content?.parts?.[0];
     const imageUrl = resultPart?.inlineData ? `data:${resultPart.inlineData.mimeType};base64,${resultPart.inlineData.data}` : null;
 
     if (!imageUrl) {
+        const finishReason = collageResponse.candidates?.[0]?.finishReason;
+        if(finishReason && finishReason !== 'STOP') {
+            throw new Error(`Collage generation failed. The model stopped with reason: ${finishReason}.`);
+        }
         throw new Error('No collage was generated.');
     }
 
     return {
         imageUrl,
-        enhancedTheme: promptResponse.text.trim(),
+        enhancedTheme: promptResponse.text?.trim() ?? '',
     };
 };
 
@@ -315,7 +365,11 @@ export const generateSocialPosts = async (image: File, context: string, language
         },
     });
 
-    const jsonText = response.text.trim();
+    const jsonText = response.text?.trim();
+    if (!jsonText) {
+        console.warn("Social post generation returned no text. Full response:", response);
+        return [];
+    }
     const parsed = JSON.parse(jsonText);
     return parsed.posts || [];
 };
@@ -368,7 +422,11 @@ export const generateImageReport = async (image: File, settings: Settings): Prom
         },
     });
 
-    const jsonText = response.text.trim();
+    const jsonText = response.text?.trim();
+    if (!jsonText) {
+        console.error("Image report generation returned no text. Full response:", response);
+        throw new Error("Failed to generate image report: The AI returned no data, which may be due to a safety filter.");
+    }
     const parsed = JSON.parse(jsonText);
     
     return {
@@ -438,6 +496,10 @@ export const generateMakerWorldPost = async (image: File, context: string, langu
         },
     });
 
-    const jsonText = response.text.trim();
+    const jsonText = response.text?.trim();
+    if (!jsonText) {
+        console.error("MakerWorld post generation returned no text. Full response:", response);
+        throw new Error("Failed to generate MakerWorld post: The AI returned no data.");
+    }
     return JSON.parse(jsonText);
 };

@@ -1,14 +1,16 @@
 import React from 'react';
+import { translations } from '../translations';
 
 interface LanguageSwitcherProps {
   language: 'en' | 'it';
   setLanguage: (lang: 'en' | 'it') => void;
   disabled?: boolean;
+  t?: typeof translations.en;
 }
 
-export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({ language, setLanguage, disabled }) => (
+export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({ language, setLanguage, disabled, t }) => (
   <div>
-    <label className="block text-sm font-medium mb-2">Language</label>
+    {t && <label className="block text-sm font-medium mb-2">{t.language}</label>}
     <div className="flex rounded-lg bg-gray-900 p-1">
       <button
         onClick={() => setLanguage('en')}
