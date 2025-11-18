@@ -1,3 +1,4 @@
+
 export type EditMode = 'cleanup-only' | 'remove-bg' | 'themed-bg';
 
 export type AspectRatio = '1:1' | '4:5' | '3:2' | '16:9' | '9:16';
@@ -7,6 +8,7 @@ export interface Settings {
   theme: string;
   harmonizeStyle: boolean;
   lightCleanup: boolean;
+  backgroundBlur: boolean;
   autoCrop: boolean;
   aspectRatios: AspectRatio[];
 }

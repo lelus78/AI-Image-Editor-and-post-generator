@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useMemo } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { SettingsPanel } from './components/SettingsPanel';
@@ -8,7 +9,7 @@ import { SocialPostGenerator } from './components/SocialPostGenerator';
 import { MakerWorldPostGenerator } from './components/MakerWorldPostGenerator';
 import { Loader } from './components/Loader';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
-import { UploadIcon, TrashIcon } from './components/IconComponents';
+import { UploadIcon, TrashIcon, PlusIcon } from './components/IconComponents';
 import type { Settings, ImageResult, SocialPost, MakerWorldPost } from './types';
 import { runImageEditing, runAutoCrop, applyAIFilter, generateCollage, generateSocialPosts, generateImageReport, generateMakerWorldPost } from './services/geminiService';
 import { usePersistentState } from './hooks/usePersistentState';
@@ -16,9 +17,10 @@ import { translations } from './translations';
 
 const initialSettings: Settings = {
     mode: 'themed-bg',
-    theme: 'A vibrant, abstract background with swirling colors',
+    theme: 'A vibrant, abstract background with swirling colors and a sense of energy.',
     harmonizeStyle: true,
     lightCleanup: true,
+    backgroundBlur: false,
     autoCrop: true,
     aspectRatios: ['1:1', '16:9'],
 };
@@ -67,12 +69,16 @@ const App: React.FC = () => {
         setImages(prev => [...prev, ...imageFiles]);
     }, []);
 
-    const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, accept: { 'image/*': [] } });
+    const { getRootProps, getInputProps, isDragActive, open } = useDropzone({ 
+        onDrop, 
+        accept: { 'image/*': [] },
+        noClick: true // Enable click manually on specific buttons
+    });
 
     const currentImage = useMemo(() => images[currentIndex], [images, currentIndex]);
     const currentImageResult = useMemo(() => imageResults[currentImage?.name], [imageResults, currentImage]);
 
-    const processSingleImage = async (image: File) => {
+    const processSingleImage = async (image: File, index: number, total: number) => {
         const updateImageResult = (imageFile: File, data: Partial<ImageResult>) => {
             setImageResults(prev => ({
                 ...prev,
@@ -85,7 +91,12 @@ const App: React.FC = () => {
             }));
         };
 
+        const setStepMessage = (step: string) => {
+            setProcessingMessage(t.processingStep(index + 1, total, step));
+        };
+
         try {
+            setStepMessage(t.stepEditing);
             const editedImageUrl = await runImageEditing(image, settings);
 
             const resultUpdate: Partial<ImageResult> = {};
@@ -97,10 +108,12 @@ const App: React.FC = () => {
             }
             updateImageResult(image, resultUpdate);
 
+            setStepMessage(t.stepAnalyzing);
             const report = await generateImageReport(image, settings);
             updateImageResult(image, { report });
 
             if (settings.autoCrop) {
+                setStepMessage(t.stepCropping);
                 const cropProposals = await runAutoCrop(editedImageUrl, settings.aspectRatios);
                 updateImageResult(image, { cropProposals });
             }
@@ -120,7 +133,7 @@ const App: React.FC = () => {
         setProcessingMessage(t.processingSingle);
         setError(null);
         
-        await processSingleImage(currentImage).catch(() => {});
+        await processSingleImage(currentImage, 0, 1).catch(() => {});
 
         setIsProcessing(false);
         setProcessingMessage('');
@@ -134,9 +147,8 @@ const App: React.FC = () => {
     
         for (const [index, image] of images.entries()) {
             setCurrentIndex(index); 
-            setProcessingMessage(t.processing(index + 1, images.length));
             try {
-                await processSingleImage(image);
+                await processSingleImage(image, index, images.length);
             } catch (e) {
                 // The error is already set by processSingleImage.
                 // We stop the batch if one image fails.
@@ -159,6 +171,7 @@ const App: React.FC = () => {
         if (!filterPrompt.trim()) return;
         
         setIsProcessing(true);
+        setProcessingMessage(t.processingStep(1, 1, t.stepFiltering));
         setError(null);
 
         const updateCurrentImageResult = (data: Partial<ImageResult>) => {
@@ -183,6 +196,7 @@ const App: React.FC = () => {
             console.error(e);
         } finally {
             setIsProcessing(false);
+            setProcessingMessage('');
         }
     };
     
@@ -275,6 +289,7 @@ const App: React.FC = () => {
     
     return (
         <div className="bg-gray-900 text-white min-h-screen font-sans">
+            <input {...getInputProps()} />
             <header className="bg-gray-800/50 backdrop-blur-sm sticky top-0 z-10 p-4 border-b border-gray-700">
                 <div className="container mx-auto flex justify-between items-center">
                     <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-500">{t.appTitle}</h1>
@@ -294,32 +309,42 @@ const App: React.FC = () => {
                         ) : (
                             <div className="flex items-center gap-2">
                                 {images.length > 0 && (
-                                    <button
-                                        onClick={handleProcessCurrentImage}
-                                        disabled={isAnythingProcessing}
-                                        className="flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        ✨ <span>{t.runProcessCurrent}</span>
-                                    </button>
-                                )}
-                                {images.length > 1 && (
-                                    <button
-                                        onClick={handleProcessImages}
-                                        disabled={isAnythingProcessing}
-                                        className="flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        🚀 <span>{t.runProcessOnAllShort(images.length)}</span>
-                                    </button>
-                                )}
-                                {images.length > 0 && (
-                                    <button
-                                        onClick={handleReset}
-                                        disabled={isAnythingProcessing}
-                                        className="bg-red-800 hover:bg-red-700 text-white p-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                        aria-label={t.startOver}
-                                    >
-                                        <TrashIcon className="w-5 h-5" />
-                                    </button>
+                                    <>
+                                        <button
+                                            onClick={handleProcessCurrentImage}
+                                            disabled={isAnythingProcessing}
+                                            className="hidden sm:flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            ✨ <span>{t.runProcessCurrent}</span>
+                                        </button>
+                                        {images.length > 1 && (
+                                            <button
+                                                onClick={handleProcessImages}
+                                                disabled={isAnythingProcessing}
+                                                className="hidden sm:flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                🚀 <span>{t.runProcessOnAllShort(images.length)}</span>
+                                            </button>
+                                        )}
+                                        <div className="w-px h-8 bg-gray-700 mx-1"></div>
+                                        <button
+                                            onClick={open}
+                                            disabled={isAnythingProcessing}
+                                            className="bg-gray-700 hover:bg-gray-600 text-white p-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                            aria-label={t.addImages}
+                                        >
+                                            <PlusIcon className="w-5 h-5" />
+                                            <span className="hidden sm:inline text-sm font-semibold">{t.addImages}</span>
+                                        </button>
+                                        <button
+                                            onClick={handleReset}
+                                            disabled={isAnythingProcessing}
+                                            className="bg-red-800 hover:bg-red-700 text-white p-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            aria-label={t.startOver}
+                                        >
+                                            <TrashIcon className="w-5 h-5" />
+                                        </button>
+                                    </>
                                 )}
                             </div>
                         )}
@@ -329,8 +354,7 @@ const App: React.FC = () => {
             
             <main className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
                 {images.length === 0 ? (
-                    <div {...getRootProps()} className={`mt-10 flex justify-center px-6 pt-12 pb-12 border-2 border-gray-600 border-dashed rounded-2xl cursor-pointer hover:border-indigo-500 transition-colors ${isDragActive ? 'border-indigo-500 bg-gray-800' : ''}`}>
-                        <input {...getInputProps()} />
+                    <div {...getRootProps()} onClick={open} className={`mt-10 flex justify-center px-6 pt-12 pb-12 border-2 border-gray-600 border-dashed rounded-2xl cursor-pointer hover:border-indigo-500 transition-colors ${isDragActive ? 'border-indigo-500 bg-gray-800' : ''}`}>
                         <div className="text-center">
                             <UploadIcon className="mx-auto h-12 w-12 text-gray-500" />
                             <h3 className="mt-2 text-lg font-semibold text-gray-300">{t.uploadTitle}</h3>

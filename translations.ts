@@ -1,3 +1,7 @@
+
+
+
+
 export const translations = {
   en: {
     // App.tsx
@@ -7,6 +11,11 @@ export const translations = {
     runProcessOnAll: (count: number) => `Run Process on All (${count})`,
     runProcessOnAllShort: (count: number) => `Process All (${count})`,
     processing: (current: number, total: number) => `Processing ${current}/${total}...`,
+    processingStep: (current: number, total: number, step: string) => `Processing ${current}/${total}: ${step}...`,
+    stepEditing: 'Editing',
+    stepAnalyzing: 'Analyzing',
+    stepCropping: 'Auto-cropping',
+    stepFiltering: 'Applying filter',
     processingSingle: 'Processing...',
     processingGeneric: 'Processing...',
     uploadTitle: 'Drop images here or click to upload',
@@ -14,6 +23,7 @@ export const translations = {
     imageQueue: 'Image Queue',
     selectForCollage: 'Select images for collage',
     startOver: 'Start Over',
+    addImages: 'Add Images',
 
     // SettingsPanel.tsx
     editingMode: '1. Editing Mode',
@@ -22,7 +32,7 @@ export const translations = {
     themedBg: 'Themed BG',
     bgTheme: 'Background Theme',
     bgThemePlaceholder: "e.g., 'A cartoon forest at dawn, soft light, green palette'",
-    selectPresetLabel: 'Or select a preset',
+    selectPresetLabel: 'Choose a Theme Style',
     selectPreset: 'Select a preset theme...',
     customThemePrompt: 'Custom Theme Prompt',
     themePresetLabels: {
@@ -42,6 +52,7 @@ export const translations = {
     enhancements: '2. Enhancements',
     harmonizeStyle: 'Harmonize Subject Style',
     lightCleanup: 'Light Cleanup',
+    backgroundBlur: 'Background Blur',
     autoCropSuggestions: 'Auto-Crop Suggestions',
     autoCropRatios: '3. Auto-Crop Ratios',
     aiFilters: '4. AI Filters',
@@ -112,13 +123,13 @@ export const translations = {
     modelContext: 'Model Context',
     modelContextPlaceholder: "e.g., 'T-Rex family from Bad Dinosaurs'",
     generateMakerPost: 'Generate MakerWorld Post',
-    modelName: 'Model Name',
-    category: 'Category',
-    tags: 'Tags',
-    description: 'Description',
-    copyDescription: 'Copy Description',
+    modelName: 'Nome Modello',
+    category: 'Categoria',
+    tags: 'Tag',
+    description: 'Descrizione',
+    copyDescription: 'Copia Descrizione',
     communityPost: 'Community Post',
-    copyPost: 'Copy Post',
+    copyPost: 'Copia Post',
 
   },
   it: {
@@ -129,6 +140,11 @@ export const translations = {
     runProcessOnAll: (count: number) => `Avvia su Tutte (${count})`,
     runProcessOnAllShort: (count: number) => `Elabora Tutte (${count})`,
     processing: (current: number, total: number) => `Elaboro ${current}/${total}...`,
+    processingStep: (current: number, total: number, step: string) => `Elaboro ${current}/${total}: ${step}...`,
+    stepEditing: 'Modifica',
+    stepAnalyzing: 'Analisi',
+    stepCropping: 'Ritaglio auto',
+    stepFiltering: 'Applico filtro',
     processingSingle: 'Elaborazione...',
     processingGeneric: 'Elaborazione...',
     uploadTitle: 'Trascina le immagini qui o clicca per caricarle',
@@ -136,6 +152,7 @@ export const translations = {
     imageQueue: 'Coda Immagini',
     selectForCollage: 'Seleziona immagini per il collage',
     startOver: 'Ricomincia',
+    addImages: 'Aggiungi Immagini',
 
     // SettingsPanel.tsx
     editingMode: '1. Modalità di Modifica',
@@ -144,7 +161,7 @@ export const translations = {
     themedBg: 'Sfondo a Tema',
     bgTheme: 'Tema Sfondo',
     bgThemePlaceholder: "es. 'Una foresta cartoon all'alba, luce soffusa, palette verde'",
-    selectPresetLabel: 'O seleziona un preset',
+    selectPresetLabel: 'Scegli uno Stile',
     selectPreset: 'Seleziona un tema predefinito...',
     customThemePrompt: 'Prompt Tema Personalizzato',
     themePresetLabels: {
@@ -164,6 +181,7 @@ export const translations = {
     enhancements: '2. Miglioramenti',
     harmonizeStyle: 'Armonizza Stile Soggetto',
     lightCleanup: 'Pulizia Leggera',
+    backgroundBlur: 'Sfocatura Sfondo',
     autoCropSuggestions: 'Suggerimenti Ritaglio Automatico',
     autoCropRatios: '3. Rapporti Ritaglio Automatico',
     aiFilters: '4. Filtri AI',

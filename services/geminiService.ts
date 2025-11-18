@@ -43,12 +43,57 @@ const base64ToGenerativePart = (base64Url: string): Part => {
     };
 };
 
+const getImageDimensions = (base64: string): Promise<{width: number, height: number}> => {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve({ width: img.width, height: img.height });
+        img.onerror = (err) => reject(err);
+        img.src = base64;
+    });
+};
+
+const performClientSideCrop = async (base64Image: string, box: { ymin: number, xmin: number, ymax: number, xmax: number }): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            let x = box.xmin * img.width;
+            let y = box.ymin * img.height;
+            let w = (box.xmax - box.xmin) * img.width;
+            let h = (box.ymax - box.ymin) * img.height;
+            
+            // Sanity checks to prevent out of bounds
+            if (x < 0) x = 0;
+            if (y < 0) y = 0;
+            if (x + w > img.width) w = img.width - x;
+            if (y + h > img.height) h = img.height - y;
+
+            canvas.width = w;
+            canvas.height = h;
+            
+            if (ctx) {
+                ctx.drawImage(img, x, y, w, h, 0, 0, w, h);
+                resolve(canvas.toDataURL('image/jpeg', 0.95));
+            } else {
+                reject(new Error("Could not get canvas context"));
+            }
+        };
+        img.onerror = reject;
+        img.src = base64Image;
+    });
+};
+
 const buildImageEditingPrompt = (settings: Settings): string => {
     let task: string;
 
     switch (settings.mode) {
         case 'cleanup-only':
             task = `Perform a light cleanup on the image: remove any minor blemishes, dust, or scratches.`;
+            if (settings.backgroundBlur) {
+                task += ` Apply a cinematic shallow depth of field effect (bokeh) to blur the background while keeping the subject sharp.`;
+            }
             break;
         case 'remove-bg':
             task = `Remove the background from the image, leaving the main subject on a transparent background.`;
@@ -58,6 +103,9 @@ const buildImageEditingPrompt = (settings: Settings): string => {
             break;
         case 'themed-bg':
             task = `Replace the background of the image with a new one based on this theme: "${settings.theme}".`;
+            if (settings.backgroundBlur) {
+                task += ` The new background should be blurred (shallow depth of field) to focus attention on the subject.`;
+            }
             if (settings.harmonizeStyle) {
                 task += ` Adjust the subject's lighting and color to blend seamlessly with the new background.`;
             }
@@ -117,115 +165,120 @@ export const runImageEditing = async (image: File, settings: Settings) => {
     throw new Error(errorMessage);
 };
 
-const extractJsonFromText = (text: string): any => {
-    const markdownMatch = text.match(/```(json)?\n([\s\S]*?)\n```/);
-    if (markdownMatch && markdownMatch[2]) {
-        try {
-            return JSON.parse(markdownMatch[2]);
-        } catch (e) {
-            console.error("Failed to parse JSON from markdown block:", e);
-        }
-    }
-    try {
-        return JSON.parse(text);
-    } catch(e) {
-        console.error("Failed to parse text as JSON:", e);
-    }
-    return null;
-};
-
 export const runAutoCrop = async (image: File | string, aspectRatios: AspectRatio[]): Promise<CropProposal[]> => {
     if (aspectRatios.length === 0) {
         return [];
     }
 
-    const imageToCropPart = typeof image === 'string'
-        ? base64ToGenerativePart(image)
-        : await fileToGenerativePart(image);
+    // 1. Prepare Image Data
+    let imageBase64 = '';
+    let mimeType = 'image/jpeg';
+    if (typeof image === 'string') {
+        imageBase64 = image; 
+        const match = image.match(/^data:(.*);base64,/);
+        if (match) mimeType = match[1];
+    } else {
+        const part = await fileToGenerativePart(image);
+        imageBase64 = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        mimeType = part.inlineData.mimeType;
+    }
 
+    // Get dimensions to help the AI model
+    const { width, height } = await getImageDimensions(imageBase64);
 
-    // --- Step 1: Generate Cropped Images ---
-    const imageGenPrompt = {
-        text: `Generate the best possible crop for each of the following aspect ratios: [${aspectRatios.join(', ')}]. Base the crops on photographic composition rules. Return only the cropped images, in the same order as the requested ratios.`
+    // 2. Ask Gemini for Crop Coordinates (Analysis)
+    // We use the text model to get coordinates instead of asking the image model to generate pixels,
+    // which is more reliable for "cropping" existing content.
+    const analysisPrompt = {
+        text: `Analyze this image (Dimensions: ${width}x${height}) and provide optimal crop coordinates for the following aspect ratios: ${aspectRatios.join(', ')}.
+        
+        For each aspect ratio:
+        1. Identify the best crop region to frame the main subject according to composition rules (Rule of Thirds, Golden Ratio, etc.).
+        2. Provide the bounding box coordinates: ymin, xmin, ymax, xmax (values from 0.0 to 1.0).
+        3. 0,0 is top-left, 1,1 is bottom-right.
+        4. Provide a composition score (0-100) and a brief rationale explaining why this crop is effective.
+        
+        Return pure JSON.`
     };
 
-    const imageGenResponse = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: { parts: [imageToCropPart, imageGenPrompt] },
+    // Remove header for API call
+    const apiBase64 = imageBase64.split(',')[1];
+    const imagePart = {
+        inlineData: {
+            data: apiBase64,
+            mimeType: mimeType
+        }
+    };
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: { parts: [imagePart, analysisPrompt] },
         config: {
-            responseModalities: [Modality.IMAGE],
+            responseMimeType: 'application/json',
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    crops: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                aspectRatio: { type: Type.STRING },
+                                ymin: { type: Type.NUMBER },
+                                xmin: { type: Type.NUMBER },
+                                ymax: { type: Type.NUMBER },
+                                xmax: { type: Type.NUMBER },
+                                compositionScore: { type: Type.INTEGER },
+                                rationale: { type: Type.STRING },
+                            },
+                            required: ['aspectRatio', 'ymin', 'xmin', 'ymax', 'xmax', 'compositionScore', 'rationale'],
+                        },
+                    },
+                },
+            },
         },
     });
 
-    if (imageGenResponse.promptFeedback?.blockReason) {
-        console.error("Auto-crop image generation blocked by prompt feedback. Full API response:", JSON.stringify(imageGenResponse, null, 2));
-        const message = imageGenResponse.promptFeedback.blockReasonMessage || `Request for auto-crop was blocked due to: ${imageGenResponse.promptFeedback.blockReason}. This may be due to the input image violating safety policies.`;
-        throw new Error(message);
-    }
-
-    const generatedImageParts = imageGenResponse.candidates?.[0]?.content?.parts?.filter(p => p.inlineData) || [];
-
-    if (generatedImageParts.length === 0) {
-        const finishReason = imageGenResponse.candidates?.[0]?.finishReason;
-        if(finishReason && finishReason !== 'STOP') {
-            throw new Error(`Auto-crop failed. The model stopped with reason: ${finishReason}.`);
-        }
-        throw new Error('Model did not return any cropped images.');
-    }
-
-    if (generatedImageParts.length !== aspectRatios.length) {
-        console.warn(`Expected ${aspectRatios.length} cropped images, but received ${generatedImageParts.length}.`);
-    }
-
-    // --- Step 2: Generate Analysis for the Crops ---
-    const analysisPrompt = {
-        text: `You are a professional photo composition analyst.
-I have provided an original image (the first image) followed by several cropped versions of it.
-Your task is to analyze each cropped version. For each one, provide a composition score (1-100) and a brief rationale explaining the compositional choice.
-The aspect ratios for the crops, in order, are: [${aspectRatios.join(', ')}].
-You MUST return ONLY a single JSON object enclosed in a markdown code block (\`\`\`json ... \`\`\`).
-The JSON object must have a key named "cropProposals", which is an array of objects.
-Each object in the "cropProposals" array must correspond to one of the cropped images, in the exact same order.
-Each object must have these three keys: "aspectRatio" (string from the list provided), "compositionScore" (number), and "rationale" (string).
-        
-Example JSON structure for two crops:
-\`\`\`json
-{
-  "cropProposals": [
-    { "aspectRatio": "${aspectRatios[0]}", "compositionScore": 95, "rationale": "..." },
-    { "aspectRatio": "${aspectRatios[1] || ''}", "compositionScore": 88, "rationale": "..." }
-  ]
-}
-\`\`\``
-    };
-
-    const analysisResponse = await ai.models.generateContent({
-        model: 'gemini-2.5-flash', // A text-capable model
-        contents: { parts: [imageToCropPart, ...generatedImageParts, analysisPrompt] },
-    });
-
-    const analysisText = analysisResponse.text?.trim();
+    const analysisText = response.text?.trim();
     if (!analysisText) {
-        console.error("The analysis model did not return any text. Full response:", analysisResponse);
-        throw new Error("The analysis model did not return any text, which may be due to a safety filter.");
+        console.warn("Auto-crop analysis returned no text.");
+        return [];
     }
 
-    const parsed = extractJsonFromText(analysisText);
-    if (!parsed || !parsed.cropProposals) {
-        console.error("Could not find or parse JSON in the analysis response.", analysisText);
-        throw new Error("Could not extract crop proposal JSON from the model's analysis response.");
+    let parsed;
+    try {
+        parsed = JSON.parse(analysisText);
+    } catch (e) {
+        console.error("Failed to parse auto-crop JSON", e);
+        return [];
     }
-    const proposalsMetadata: Omit<CropProposal, 'imageUrl'>[] = parsed.cropProposals;
 
-    // --- Step 3: Combine Images and Metadata ---
-    return proposalsMetadata.map((proposal, index) => {
-        const imagePart = generatedImageParts[index]?.inlineData;
-        return {
-            ...proposal,
-            aspectRatio: proposal.aspectRatio as AspectRatio,
-            imageUrl: imagePart ? `data:${imagePart.mimeType};base64,${imagePart.data}` : '',
-        };
-    }).filter(p => p.imageUrl);
+    const suggestions = parsed.crops || [];
+
+    // 3. Perform Client-Side Cropping
+    // We physically crop the image using the Canvas API based on the AI's coordinates.
+    const results = await Promise.all(suggestions.map(async (s: any) => {
+        try {
+            // Ensure we process only requested ratios (in case AI hallucinates extra ones)
+            if (!aspectRatios.includes(s.aspectRatio as AspectRatio)) return null;
+
+            const croppedUrl = await performClientSideCrop(imageBase64, {
+                ymin: s.ymin, xmin: s.xmin, ymax: s.ymax, xmax: s.xmax
+            });
+
+            return {
+                aspectRatio: s.aspectRatio,
+                compositionScore: s.compositionScore,
+                rationale: s.rationale,
+                imageUrl: croppedUrl,
+            };
+        } catch (e) {
+            console.error(`Failed to perform crop for ${s.aspectRatio}`, e);
+            return null;
+        }
+    }));
+
+    return results.filter((r: any) => r !== null) as CropProposal[];
 };
 
 
@@ -387,6 +440,7 @@ export const generateImageReport = async (image: File, settings: Settings): Prom
         `Mode: ${settings.mode}`,
         ...settings.mode === 'themed-bg' ? [`Theme: "${settings.theme}"`, `Harmonize Style: ${settings.harmonizeStyle}`] : [],
         `Light Cleanup: ${settings.lightCleanup}`,
+        `Background Blur: ${settings.backgroundBlur}`,
         `Auto Crop: ${settings.autoCrop}`,
         ...settings.autoCrop ? [`Aspect Ratios: ${settings.aspectRatios.join(', ')}`] : []
     ].join('\n');

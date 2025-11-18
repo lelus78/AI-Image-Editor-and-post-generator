@@ -1,3 +1,4 @@
+
 import React, { useEffect, useMemo } from 'react';
 import { translations } from '../translations';
 
@@ -35,8 +36,9 @@ export const ImageThumbnailStrip: React.FC<ImageThumbnailStripProps> = ({ t, ima
               <button
                 onClick={() => onSelect(index)}
                 disabled={disabled}
-                className={`w-full h-full rounded-lg overflow-hidden border-2 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-indigo-500
+                className={`w-full h-full rounded-lg overflow-hidden border-2 transition-all focus:outline-none relative
                   ${currentIndex === index ? 'border-indigo-500' : 'border-gray-600 hover:border-gray-500'}
+                  ${isSelectedForCollage ? 'ring-2 ring-emerald-500 ring-offset-2 ring-offset-gray-800' : ''}
                   ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
               >
                 <img
@@ -44,12 +46,15 @@ export const ImageThumbnailStrip: React.FC<ImageThumbnailStripProps> = ({ t, ima
                   alt={image.name}
                   className="w-full h-full object-cover"
                 />
+                {isSelectedForCollage && (
+                  <div className="absolute inset-0 bg-emerald-500/20 pointer-events-none transition-opacity" />
+                )}
               </button>
               <button
                 onClick={() => onToggleSelection(index)}
                 disabled={disabled}
-                className={`absolute top-1.5 right-1.5 w-6 h-6 rounded-full border-2 border-white/50 bg-black/30 backdrop-blur-sm flex items-center justify-center transition-all
-                  ${isSelectedForCollage ? 'bg-indigo-600 border-indigo-400' : 'hover:bg-black/60'}
+                className={`absolute top-1.5 right-1.5 w-6 h-6 rounded-full border-2 border-white/50 bg-black/30 backdrop-blur-sm flex items-center justify-center transition-all z-10
+                  ${isSelectedForCollage ? 'bg-emerald-600 border-emerald-400' : 'hover:bg-black/60'}
                   ${disabled ? 'cursor-not-allowed' : ''}`}
                 aria-label={isSelectedForCollage ? 'Deselect for collage' : 'Select for collage'}
               >

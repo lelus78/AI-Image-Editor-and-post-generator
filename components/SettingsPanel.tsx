@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import type { Settings, EditMode, AspectRatio } from '../types';
 import { SparklesIcon, ScissorsIcon, WandIcon } from './IconComponents';
@@ -17,6 +18,14 @@ interface SettingsPanelProps {
 }
 
 const aspectRatios: AspectRatio[] = ['1:1', '4:5', '3:2', '16:9', '9:16'];
+
+const PRESET_IMAGES: Record<string, string> = {
+  abstract: "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&w=150&q=80",
+  studio: "https://images.unsplash.com/photo-1494438639946-1ebd1d20bf85?auto=format&fit=crop&w=150&q=80",
+  forest: "https://images.unsplash.com/photo-1511497584788-876760111969?auto=format&fit=crop&w=150&q=80",
+  cityscape: "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?auto=format&fit=crop&w=150&q=80",
+  cafe: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=150&q=80"
+};
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({ t, settings, setSettings, disabled, selectedFilter, setSelectedFilter, customFilterPrompt, setCustomFilterPrompt, onApplyFilter, isImageLoaded }) => {
   const handleModeChange = (mode: EditMode) => {
@@ -77,24 +86,45 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ t, settings, setSe
         {settings.mode === 'themed-bg' && (
           <div className="space-y-4">
             <div>
-                <label htmlFor="theme-preset" className="block text-sm font-medium mb-2">{t.selectPresetLabel}</label>
-                <select
-                  id="theme-preset"
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      setSettings(s => ({ ...s, theme: e.target.value }))
-                    }
-                  }}
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-                >
-                  <option value="">{t.selectPreset}</option>
-                  {Object.keys(t.themePresets).map((key) => (
-                    <option key={key} value={t.themePresets[key as keyof typeof t.themePresets]}>
-                      {t.themePresetLabels[key as keyof typeof t.themePresetLabels]}
-                    </option>
-                  ))}
-                </select>
+                <label className="block text-sm font-medium mb-2">{t.selectPresetLabel}</label>
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                  {Object.keys(t.themePresets).map((key) => {
+                     const presetKey = key as keyof typeof t.themePresets;
+                     const prompt = t.themePresets[presetKey];
+                     const label = t.themePresetLabels[presetKey as keyof typeof t.themePresetLabels];
+                     
+                     return (
+                      <button
+                        key={key}
+                        onClick={() => setSettings(s => ({ ...s, theme: prompt }))}
+                        className={`relative group aspect-square rounded-lg overflow-hidden border-2 transition-all ${settings.theme === prompt ? 'border-indigo-500 ring-2 ring-indigo-500/50' : 'border-transparent hover:border-gray-500'}`}
+                        title={label}
+                      >
+                        <img 
+                          src={PRESET_IMAGES[key]} 
+                          alt={key} 
+                          className="w-full h-full object-cover transition-transform group-hover:scale-110" 
+                        />
+                        <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors flex items-end p-1">
+                          <span className="text-[10px] font-medium text-white truncate w-full text-center bg-black/50 rounded px-1 backdrop-blur-sm">
+                            {label}
+                          </span>
+                        </div>
+                      </button>
+                     );
+                  })}
+                </div>
             </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                <div className="w-full border-t border-gray-700"></div>
+              </div>
+              <div className="relative flex justify-center">
+                <span className="bg-gray-800 px-2 text-xs text-gray-400 uppercase">Or custom</span>
+              </div>
+            </div>
+
             <div>
               <label htmlFor="theme" className="block text-sm font-medium mb-2">{t.customThemePrompt}</label>
               <textarea
@@ -131,6 +161,18 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ t, settings, setSe
                   type="checkbox"
                   checked={settings.lightCleanup}
                   onChange={(e) => setSettings(s => ({ ...s, lightCleanup: e.target.checked }))}
+                  className="sr-only peer"
+                />
+                <div className="relative w-11 h-6 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+              </label>
+            )}
+            { settings.mode !== 'remove-bg' && (
+              <label className="flex items-center justify-between bg-gray-700 p-3 rounded-lg cursor-pointer">
+                <span>{t.backgroundBlur}</span>
+                 <input
+                  type="checkbox"
+                  checked={settings.backgroundBlur}
+                  onChange={(e) => setSettings(s => ({ ...s, backgroundBlur: e.target.checked }))}
                   className="sr-only peer"
                 />
                 <div className="relative w-11 h-6 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
