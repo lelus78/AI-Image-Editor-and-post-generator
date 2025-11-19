@@ -69,7 +69,7 @@ export const translations = {
       goldenHour: 'Golden Hour',
       pastelDream: 'Pastel Dream',
       monochromeSketch: 'Monochrome Sketch',
-      laserEngrave: 'Laser Engrave (Inverted)',
+      laserEngrave: 'Laser Engrave',
       custom: 'Custom...',
     },
     filterOptionDescriptions: {
@@ -79,14 +79,14 @@ export const translations = {
         goldenHour: 'Bathes the image in warm, soft, golden light, mimicking sunset.',
         pastelDream: 'A soft, dreamy aesthetic with muted pastel colors and a hazy glow.',
         monochromeSketch: 'A high-contrast, pencil-sketch style in black and white.',
-        laserEngrave: 'A high-contrast black and white image with inverted colors (negative), optimized for laser engraving.',
+        laserEngrave: 'A pure black and white style simulating laser engraving. Use stippling and distinct lines for shading, avoiding smooth gray gradients. High contrast and sharp details.',
     },
+    invertColors: 'Invert (Negative)',
 
     // ImageViewer.tsx
     original: 'Original',
     cleaned: 'Cleaned',
     removedBg: 'Removed BG',
-    // FIX: Removed duplicate 'themedBg' property to resolve "multiple properties with the same name" error.
     filtered: 'Filtered',
     crops: 'Crops',
     report: 'Report',
@@ -208,7 +208,7 @@ export const translations = {
       goldenHour: 'Ora d\'Oro',
       pastelDream: 'Sogno Pastello',
       monochromeSketch: 'Schizzo Monocromatico',
-      laserEngrave: 'Incisione Laser (Invertito)',
+      laserEngrave: 'Incisione Laser',
       custom: 'Personalizzato...',
     },
     filterOptionDescriptions: {
@@ -218,8 +218,9 @@ export const translations = {
         goldenHour: 'Immerge l\'immagine in una luce calda, morbida e dorata, imitando il tramonto.',
         pastelDream: 'Un\'estetica morbida e onirica con colori pastello tenui e un bagliore sfocato.',
         monochromeSketch: 'Uno stile schizzo a matita ad alto contrasto in bianco e nero.',
-        laserEngrave: 'Un\'immagine in bianco e nero ad alto contrasto con colori invertiti (negativo), ottimizzata per l\'incisione laser.',
+        laserEngrave: 'Uno stile di immagine in bianco e nero puro che simula l\'incisione laser. Usa puntinatura e linee distinte per le ombreggiature, evitando sfumature di grigio morbide. Alto contrasto e dettagli nitidi.',
     },
+    invertColors: 'Inverti (Negativo)',
 
     // ImageViewer.tsx
     original: 'Originale',

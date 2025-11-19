@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import type { ImageResult } from '../types';
 import { DownloadIcon, RefreshIcon } from './IconComponents';
@@ -24,6 +25,7 @@ const downloadImage = (url: string, filename: string) => {
 
 export const ImageViewer: React.FC<ImageViewerProps> = ({ t, imageResult, originalImage, onRegenerateTheme, isProcessing }) => {
   const [activeTab, setActiveTab] = useState<ViewTab>('original');
+  const [isInverted, setIsInverted] = useState(false);
   const imageRef = useRef<HTMLImageElement>(null);
   const prevImageResultRef = useRef<ImageResult | null>(null);
 
@@ -46,6 +48,10 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ t, imageResult, origin
     prevImageResultRef.current = imageResult;
   }, [imageResult]);
 
+  // Reset inversion when tab changes or image changes
+  useEffect(() => {
+    setIsInverted(false);
+  }, [activeTab, imageResult]);
 
   const originalUrl = originalImage ? URL.createObjectURL(originalImage) : "https://picsum.photos/1024/768";
   const baseFilename = originalImage?.name.split('.').slice(0, -1).join('.') || 'download';
@@ -63,15 +69,56 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ t, imageResult, origin
     });
   };
 
+  const processAndDownload = async (url: string, filename: string) => {
+    if (!isInverted) {
+        downloadImage(url, filename);
+        return;
+    }
+
+    try {
+        // If inverted, draw to canvas, invert, and download
+        const canvas = document.createElement('canvas');
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.src = url;
+        
+        await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+        });
+
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        
+        if (ctx) {
+            ctx.filter = 'invert(1)';
+            ctx.drawImage(img, 0, 0);
+            const invertedUrl = canvas.toDataURL(filename.endsWith('.png') ? 'image/png' : 'image/jpeg');
+            const nameParts = filename.split('.');
+            const ext = nameParts.pop();
+            const newFilename = `${nameParts.join('.')}-inverted.${ext}`;
+            downloadImage(invertedUrl, newFilename);
+        } else {
+            // Fallback
+             downloadImage(url, filename);
+        }
+    } catch (e) {
+        console.error("Failed to invert image for download:", e);
+        downloadImage(url, filename);
+    }
+  };
+
   const renderContent = () => {
     const imageToDisplay = imageResult?.original || originalUrl;
+    const imageStyle = isInverted ? { filter: 'invert(1)' } : undefined;
 
     const mainImage = (src: string, alt: string, isTransparent = false) => {
       const containerClasses = isTransparent ? "bg-grid-pattern p-4 rounded-lg" : "";
       const imageClasses = isTransparent ? "w-full h-auto object-contain max-h-[65vh]" : "w-full h-auto object-contain rounded-lg max-h-[70vh]";
       return (
         <div className={containerClasses}>
-          <img ref={imageRef} src={src} alt={alt} className={imageClasses} crossOrigin="anonymous" />
+          <img ref={imageRef} src={src} alt={alt} className={imageClasses} crossOrigin="anonymous" style={imageStyle} />
         </div>
       );
     };
@@ -98,14 +145,14 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ t, imageResult, origin
       case 'themedBg':
         return imageResult?.themedBg ? (
             <div className="w-full text-center space-y-4">
-              <img src={imageResult.themedBg} alt={t.themedBg} className="w-full h-auto object-contain rounded-lg max-h-[60vh]" />
+              <img src={imageResult.themedBg} alt={t.themedBg} className="w-full h-auto object-contain rounded-lg max-h-[60vh]" style={imageStyle}/>
               {imageResult.enhancedTheme && renderPromptBox(t.enhancedPromptUsed, imageResult.enhancedTheme, onRegenerateTheme)}
             </div>
           ) : <p>{t.notGenerated}</p>;
       case 'filtered':
         return imageResult?.filtered ? (
             <div className="w-full text-center space-y-4">
-              <img src={imageResult.filtered} alt={t.filtered} className="w-full h-auto object-contain rounded-lg max-h-[60vh]" />
+              <img src={imageResult.filtered} alt={t.filtered} className="w-full h-auto object-contain rounded-lg max-h-[60vh]" style={imageStyle}/>
               {imageResult.enhancedFilterPrompt && renderPromptBox(t.enhancedFilterPrompt, imageResult.enhancedFilterPrompt)}
             </div>
           ) : <p>{t.notGenerated}</p>;
@@ -117,7 +164,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ t, imageResult, origin
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 {imageResult.cropProposals.map((crop, index) => (
                     <div key={index} className="bg-gray-700 p-3 rounded-lg text-center relative group">
-                      <img src={crop.imageUrl} alt={`${t.crops} ${index + 1}`} className="w-full h-auto rounded-md mb-2" />
+                      <img src={crop.imageUrl} alt={`${t.crops} ${index + 1}`} className="w-full h-auto rounded-md mb-2" style={imageStyle} />
                       <button onClick={() => downloadImage(crop.imageUrl!, `${baseFilename}-crop-${crop.aspectRatio.replace(':', 'x')}.jpg`)} aria-label="Download crop" className="absolute top-2 right-2 bg-black/50 p-2 rounded-full text-white opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity">
                         <DownloadIcon className="w-5 h-5" />
                       </button>
@@ -170,6 +217,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ t, imageResult, origin
   }
   const currentDownload = getCurrentDownload();
 
+  const showInvertToggle = activeTab !== 'report';
+
   return (
     <div className="bg-gray-800 rounded-2xl p-4 sm:p-6">
       <style>{`.bg-grid-pattern { background-image: linear-gradient(45deg, #4b5563 25%, transparent 25%), linear-gradient(-45deg, #4b5563 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #4b5563 75%), linear-gradient(-45deg, transparent 75%, #4b5563 75%); background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0px; }`}</style>
@@ -184,18 +233,35 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ t, imageResult, origin
             {imageResult?.cropProposals.length > 0 && <button onClick={() => setActiveTab('crops')} disabled={isProcessing} className={`px-4 py-2 text-sm rounded-md ${activeTab === 'crops' ? 'bg-indigo-600' : 'bg-gray-700 hover:bg-gray-600'} disabled:opacity-50`}>{t.crops}</button>}
             {imageResult?.report && <button onClick={() => setActiveTab('report')} disabled={isProcessing} className={`px-4 py-2 text-sm rounded-md ${activeTab === 'report' ? 'bg-indigo-600' : 'bg-gray-700 hover:bg-gray-600'} disabled:opacity-50`}>{t.report}</button>}
           </div>
-          {imageResult && (
-            <button onClick={handleDownloadAll} disabled={isProcessing} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm disabled:opacity-50">
-                <DownloadIcon className="w-4 h-4" />
-                <span>{t.downloadAll}</span>
-            </button>
-          )}
+          
+          <div className="flex items-center gap-2">
+            {showInvertToggle && (
+                <button 
+                    onClick={() => setIsInverted(!isInverted)} 
+                    disabled={isProcessing}
+                    className={`flex items-center gap-2 px-3 py-2 text-sm font-bold rounded-lg transition-colors border disabled:opacity-50 ${isInverted ? 'bg-white text-gray-900 border-white' : 'bg-gray-800 text-gray-300 border-gray-600 hover:bg-gray-700'}`}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.91 11.672a.375.375 0 010 .656l-5.603 3.113a.375.375 0 01-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112z" fill="currentColor" className={isInverted ? 'hidden' : 'block'}/>
+                         <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" fill="currentColor" className={isInverted ? 'block' : 'hidden'}/>
+                    </svg>
+                    {t.invertColors}
+                </button>
+            )}
+            {imageResult && (
+                <button onClick={handleDownloadAll} disabled={isProcessing} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm disabled:opacity-50">
+                    <DownloadIcon className="w-4 h-4" />
+                    <span>{t.downloadAll}</span>
+                </button>
+            )}
+          </div>
       </div>
 
       <div className="flex justify-center items-center min-h-[300px] relative">
         {renderContent()}
         {currentDownload && (
-            <button onClick={() => downloadImage(currentDownload.url, currentDownload.filename)} aria-label="Download current view" className="absolute top-2 right-2 bg-gray-900/60 hover:bg-gray-900/80 p-2 rounded-full text-white transition-colors">
+            <button onClick={() => processAndDownload(currentDownload.url, currentDownload.filename)} aria-label="Download current view" className="absolute top-2 right-2 bg-gray-900/60 hover:bg-gray-900/80 p-2 rounded-full text-white transition-colors">
                 <DownloadIcon className="w-6 h-6" />
             </button>
         )}
