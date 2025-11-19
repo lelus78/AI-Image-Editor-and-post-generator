@@ -1,7 +1,4 @@
 
-
-
-
 export const translations = {
   en: {
     // App.tsx
@@ -41,6 +38,8 @@ export const translations = {
       forest: 'Enchanted Forest',
       cityscape: 'Futuristic Cityscape',
       cafe: 'Cozy Cafe',
+      pastel: 'Pastel Dream',
+      sketch: 'Monochrome Sketch',
     },
     themePresets: {
       abstract: 'A vibrant, abstract background with swirling colors and a sense of energy.',
@@ -48,6 +47,8 @@ export const translations = {
       forest: 'A magical, enchanted forest at dusk, with glowing mushrooms, ancient trees, and soft, ethereal light filtering through the canopy.',
       cityscape: 'A sprawling, futuristic cityscape at night, with neon signs, flying vehicles, and towering skyscrapers.',
       cafe: 'The warm and inviting interior of a cozy cafe, with wooden tables, soft lighting, and the hint of steam from a coffee cup.',
+      pastel: 'A soft, dreamy world with muted pastel colors, fluffy clouds, and a gentle, hazy glow.',
+      sketch: 'A high-contrast, black and white pencil sketch world, artistic and rough textures.',
     },
     enhancements: '2. Enhancements',
     harmonizeStyle: 'Harmonize Subject Style',
@@ -66,6 +67,9 @@ export const translations = {
       noir: 'Noir',
       cyberpunk: 'Cyberpunk Glow',
       goldenHour: 'Golden Hour',
+      pastelDream: 'Pastel Dream',
+      monochromeSketch: 'Monochrome Sketch',
+      laserEngrave: 'Laser Engrave (Inverted)',
       custom: 'Custom...',
     },
     filterOptionDescriptions: {
@@ -73,6 +77,9 @@ export const translations = {
         noir: 'A high-contrast black and white filter with deep shadows and dramatic lighting.',
         cyberpunk: 'A futuristic look with neon teals and magentas, especially in the highlights and shadows.',
         goldenHour: 'Bathes the image in warm, soft, golden light, mimicking sunset.',
+        pastelDream: 'A soft, dreamy aesthetic with muted pastel colors and a hazy glow.',
+        monochromeSketch: 'A high-contrast, pencil-sketch style in black and white.',
+        laserEngrave: 'A high-contrast black and white image with inverted colors (negative), optimized for laser engraving.',
     },
 
     // ImageViewer.tsx
@@ -170,6 +177,8 @@ export const translations = {
       forest: 'Foresta Incantata',
       cityscape: 'Paesaggio Urbano Futuristico',
       cafe: 'Caffè Accogliente',
+      pastel: 'Sogno Pastello',
+      sketch: 'Schizzo Monocromatico',
     },
     themePresets: {
       abstract: 'Uno sfondo astratto e vibrante con colori vorticosi e un senso di energia.',
@@ -177,6 +186,8 @@ export const translations = {
       forest: 'Una foresta magica e incantata al crepuscolo, con funghi luminosi, alberi secolari e una luce eterea e soffusa che filtra attraverso la chioma.',
       cityscape: 'Un vasto paesaggio urbano futuristico di notte, con insegne al neon, veicoli volanti e grattacieli imponenti.',
       cafe: "L'interno caldo e invitante di un caffè accogliente, con tavoli in legno, luci soffuse e un accenno di vapore da una tazza di caffè.",
+      pastel: 'Un mondo morbido e sognante con colori pastello tenui, nuvole soffici e un bagliore gentile e sfocato.',
+      sketch: 'Un mondo schizzato a matita ad alto contrasto in bianco e nero, con texture artistiche e ruvide.',
     },
     enhancements: '2. Miglioramenti',
     harmonizeStyle: 'Armonizza Stile Soggetto',
@@ -195,6 +206,9 @@ export const translations = {
       noir: 'Noir',
       cyberpunk: 'Bagliore Cyberpunk',
       goldenHour: 'Ora d\'Oro',
+      pastelDream: 'Sogno Pastello',
+      monochromeSketch: 'Schizzo Monocromatico',
+      laserEngrave: 'Incisione Laser (Invertito)',
       custom: 'Personalizzato...',
     },
     filterOptionDescriptions: {
@@ -202,6 +216,9 @@ export const translations = {
         noir: 'Un filtro bianco e nero ad alto contrasto con ombre profonde e illuminazione drammatica.',
         cyberpunk: 'Un look futuristico con tonalità neon ciano e magenta, specialmente nelle luci e nelle ombre.',
         goldenHour: 'Immerge l\'immagine in una luce calda, morbida e dorata, imitando il tramonto.',
+        pastelDream: 'Un\'estetica morbida e onirica con colori pastello tenui e un bagliore sfocato.',
+        monochromeSketch: 'Uno stile schizzo a matita ad alto contrasto in bianco e nero.',
+        laserEngrave: 'Un\'immagine in bianco e nero ad alto contrasto con colori invertiti (negativo), ottimizzata per l\'incisione laser.',
     },
 
     // ImageViewer.tsx

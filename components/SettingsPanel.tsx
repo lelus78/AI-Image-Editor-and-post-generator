@@ -24,7 +24,9 @@ const PRESET_IMAGES: Record<string, string> = {
   studio: "https://images.unsplash.com/photo-1494438639946-1ebd1d20bf85?auto=format&fit=crop&w=150&q=80",
   forest: "https://images.unsplash.com/photo-1511497584788-876760111969?auto=format&fit=crop&w=150&q=80",
   cityscape: "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?auto=format&fit=crop&w=150&q=80",
-  cafe: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=150&q=80"
+  cafe: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=150&q=80",
+  pastel: "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&w=150&q=80",
+  sketch: "https://images.unsplash.com/photo-1578301978693-85fa9c0320b9?auto=format&fit=crop&w=150&q=80"
 };
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({ t, settings, setSettings, disabled, selectedFilter, setSelectedFilter, customFilterPrompt, setCustomFilterPrompt, onApplyFilter, isImageLoaded }) => {
@@ -47,6 +49,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ t, settings, setSe
     { value: `${t.filterOptions.noir}: ${t.filterOptionDescriptions.noir}`, label: t.filterOptions.noir },
     { value: `${t.filterOptions.cyberpunk}: ${t.filterOptionDescriptions.cyberpunk}`, label: t.filterOptions.cyberpunk },
     { value: `${t.filterOptions.goldenHour}: ${t.filterOptionDescriptions.goldenHour}`, label: t.filterOptions.goldenHour },
+    { value: `${t.filterOptions.pastelDream}: ${t.filterOptionDescriptions.pastelDream}`, label: t.filterOptions.pastelDream },
+    { value: `${t.filterOptions.monochromeSketch}: ${t.filterOptionDescriptions.monochromeSketch}`, label: t.filterOptions.monochromeSketch },
+    { value: `${t.filterOptions.laserEngrave}: ${t.filterOptionDescriptions.laserEngrave}`, label: t.filterOptions.laserEngrave },
     { value: 'custom', label: t.filterOptions.custom },
   ], [t]);
 
