@@ -21,6 +21,7 @@ export const translations = {
     selectForCollage: 'Select images for collage',
     startOver: 'Start Over',
     addImages: 'Add Images',
+    undo: 'Undo',
 
     // SettingsPanel.tsx
     editingMode: '1. Editing Mode',
@@ -82,6 +83,7 @@ export const translations = {
         laserEngrave: 'A pure black and white style simulating laser engraving. Use stippling and distinct lines for shading, avoiding smooth gray gradients. High contrast and sharp details.',
     },
     invertColors: 'Invert (Negative)',
+    invertResult: 'Invert Result Colors',
 
     // ImageViewer.tsx
     original: 'Original',
@@ -102,6 +104,9 @@ export const translations = {
     interventionType: 'Intervention Type',
     parametersUsed: 'Parameters Used',
     score: 'Score',
+    zoomIn: 'Zoom In',
+    zoomOut: 'Zoom Out',
+    resetZoom: 'Reset View',
 
     // CollageCreator.tsx
     collageCreatorTitle: 'Artistic Collage Creator',
@@ -160,6 +165,7 @@ export const translations = {
     selectForCollage: 'Seleziona immagini per il collage',
     startOver: 'Ricomincia',
     addImages: 'Aggiungi Immagini',
+    undo: 'Annulla',
 
     // SettingsPanel.tsx
     editingMode: '1. Modalità di Modifica',
@@ -186,7 +192,7 @@ export const translations = {
       forest: 'Una foresta magica e incantata al crepuscolo, con funghi luminosi, alberi secolari e una luce eterea e soffusa che filtra attraverso la chioma.',
       cityscape: 'Un vasto paesaggio urbano futuristico di notte, con insegne al neon, veicoli volanti e grattacieli imponenti.',
       cafe: "L'interno caldo e invitante di un caffè accogliente, con tavoli in legno, luci soffuse e un accenno di vapore da una tazza di caffè.",
-      pastel: 'Un mondo morbido e sognante con colori pastello tenui, nuvole soffici e un bagliore gentile e sfocato.',
+      pastel: 'Un mondo morbido e sognante con colori pastello tenui e un bagliore gentile e sfocato.',
       sketch: 'Un mondo schizzato a matita ad alto contrasto in bianco e nero, con texture artistiche e ruvide.',
     },
     enhancements: '2. Miglioramenti',
@@ -221,6 +227,7 @@ export const translations = {
         laserEngrave: 'Uno stile di immagine in bianco e nero puro che simula l\'incisione laser. Usa puntinatura e linee distinte per le ombreggiature, evitando sfumature di grigio morbide. Alto contrasto e dettagli nitidi.',
     },
     invertColors: 'Inverti (Negativo)',
+    invertResult: 'Inverti Colori Risultato',
 
     // ImageViewer.tsx
     original: 'Originale',
@@ -241,6 +248,9 @@ export const translations = {
     interventionType: 'Tipo di Intervento',
     parametersUsed: 'Parametri Utilizzati',
     score: 'Punteggio',
+    zoomIn: 'Zoom Avanti',
+    zoomOut: 'Zoom Indietro',
+    resetZoom: 'Reimposta',
 
     // CollageCreator.tsx
     collageCreatorTitle: 'Creatore di Collage Artistici',

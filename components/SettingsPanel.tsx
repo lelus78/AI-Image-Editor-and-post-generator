@@ -1,7 +1,7 @@
 
 import React, { useMemo } from 'react';
 import type { Settings, EditMode, AspectRatio } from '../types';
-import { SparklesIcon, ScissorsIcon, WandIcon } from './IconComponents';
+import { SparklesIcon, ScissorsIcon, WandIcon, InvertColorsIcon } from './IconComponents';
 import { translations } from '../translations';
 
 interface SettingsPanelProps {
@@ -15,6 +15,8 @@ interface SettingsPanelProps {
   onApplyFilter: () => void;
   isImageLoaded: boolean;
   t: typeof translations.en;
+  onInvertFilter: () => void;
+  hasFilteredResult: boolean;
 }
 
 const aspectRatios: AspectRatio[] = ['1:1', '4:5', '3:2', '16:9', '9:16'];
@@ -29,7 +31,7 @@ const PRESET_IMAGES: Record<string, string> = {
   sketch: "https://images.unsplash.com/photo-1578301978693-85fa9c0320b9?auto=format&fit=crop&w=150&q=80"
 };
 
-export const SettingsPanel: React.FC<SettingsPanelProps> = ({ t, settings, setSettings, disabled, selectedFilter, setSelectedFilter, customFilterPrompt, setCustomFilterPrompt, onApplyFilter, isImageLoaded }) => {
+export const SettingsPanel: React.FC<SettingsPanelProps> = ({ t, settings, setSettings, disabled, selectedFilter, setSelectedFilter, customFilterPrompt, setCustomFilterPrompt, onApplyFilter, isImageLoaded, onInvertFilter, hasFilteredResult }) => {
   const handleModeChange = (mode: EditMode) => {
     setSettings(s => ({ ...s, mode }));
   };
@@ -57,6 +59,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ t, settings, setSe
 
 
   const isFilterApplyDisabled = disabled || !isImageLoaded || selectedFilter === 'none' || (selectedFilter === 'custom' && !customFilterPrompt.trim());
+  const isLaserEngrave = selectedFilter.startsWith(t.filterOptions.laserEngrave);
 
   return (
     <div className="bg-gray-800 rounded-2xl p-6 space-y-6 sticky top-24">
@@ -251,6 +254,17 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ t, settings, setSe
               <WandIcon className="w-5 h-5" />
               {t.applyFilter}
           </button>
+          
+          {isLaserEngrave && (
+             <button
+               onClick={onInvertFilter}
+               disabled={disabled || !hasFilteredResult}
+               className="w-full flex items-center justify-center gap-2 bg-gray-900 border border-gray-600 hover:bg-gray-800 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+             >
+                <InvertColorsIcon className="w-5 h-5" />
+                {t.invertResult}
+             </button>
+          )}
       </div>
 
     </div>

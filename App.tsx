@@ -1,15 +1,15 @@
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { SettingsPanel } from './components/SettingsPanel';
-import { ImageViewer } from './components/ImageViewer';
+import { ImageViewer, ViewTab } from './components/ImageViewer';
 import { ImageThumbnailStrip } from './components/ImageThumbnailStrip';
 import { CollageCreator } from './components/CollageCreator';
 import { SocialPostGenerator } from './components/SocialPostGenerator';
 import { MakerWorldPostGenerator } from './components/MakerWorldPostGenerator';
 import { Loader } from './components/Loader';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
-import { UploadIcon, TrashIcon, PlusIcon } from './components/IconComponents';
+import { UploadIcon, TrashIcon, PlusIcon, UndoIcon } from './components/IconComponents';
 import type { Settings, ImageResult, SocialPost, MakerWorldPost } from './types';
 import { runImageEditing, runAutoCrop, applyAIFilter, generateCollage, generateSocialPosts, generateImageReport, generateMakerWorldPost } from './services/geminiService';
 import { usePersistentState } from './hooks/usePersistentState';
@@ -27,6 +27,16 @@ const initialSettings: Settings = {
 
 const initialCollageTheme = 'A futuristic cityscape at night';
 
+interface HistoryState {
+    results: Record<string, ImageResult>;
+    tab: ViewTab;
+    settings: Settings;
+    filter: {
+        selected: string;
+        customPrompt: string;
+    };
+}
+
 const App: React.FC = () => {
     const [images, setImages] = useState<File[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -35,7 +45,21 @@ const App: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [processingMessage, setProcessingMessage] = useState('');
 
+    // Settings State
     const [settings, setSettings] = useState<Settings>(initialSettings);
+
+    // Filter states
+    const [selectedFilter, setSelectedFilter] = useState('none');
+    const [customFilterPrompt, setCustomFilterPrompt] = useState('');
+
+    // Image Viewer State (Lifted up for chaining inputs)
+    const [activeTab, setActiveTab] = useState<ViewTab>('original');
+    
+    // History Stack
+    const [history, setHistory] = useState<HistoryState[]>([]);
+    
+    // Track previous result to auto-switch tabs when new results arrive
+    const prevImageResultRef = useRef<ImageResult | null>(null);
 
     // Language States with persistence
     const [uiLanguage, setUiLanguage] = usePersistentState<'en' | 'it'>('uiLanguage', 'en');
@@ -44,10 +68,6 @@ const App: React.FC = () => {
     
     // Translations object
     const t = translations[uiLanguage];
-
-    // Filter states
-    const [selectedFilter, setSelectedFilter] = useState('none');
-    const [customFilterPrompt, setCustomFilterPrompt] = useState('');
 
     // Collage states
     const [selectedCollageIndices, setSelectedCollageIndices] = useState<number[]>([]);
@@ -78,7 +98,87 @@ const App: React.FC = () => {
     const currentImage = useMemo(() => images[currentIndex], [images, currentIndex]);
     const currentImageResult = useMemo(() => imageResults[currentImage?.name], [imageResults, currentImage]);
 
-    const processSingleImage = async (image: File, index: number, total: number) => {
+    // Auto-switch tab logic based on new results
+    useEffect(() => {
+        if (currentImageResult) {
+          if (currentImageResult.filtered && !prevImageResultRef.current?.filtered) {
+            setActiveTab('filtered');
+          } else if (currentImageResult.themedBg && !prevImageResultRef.current?.themedBg) {
+            setActiveTab('themedBg');
+          } else if (currentImageResult.cleaned && !prevImageResultRef.current?.cleaned) {
+            setActiveTab('cleaned');
+          } else if (currentImageResult.removedBg && !prevImageResultRef.current?.removedBg) {
+            setActiveTab('removedBg');
+          } else if (!prevImageResultRef.current || !currentImageResult) {
+             // If result exists but nothing specific changed (or first load), usually stay or go to original.
+             // However, when Undoing, we might want to stay on the restored tab.
+             // The useEffect below controls that, but here we just want to catch *newly generated* stuff.
+          }
+        } else {
+            setActiveTab('original');
+        }
+        prevImageResultRef.current = currentImageResult;
+    }, [currentImageResult]);
+
+    // Helper to get the current active image source (File or base64 string)
+    const getActiveImageSource = (): File | string => {
+        if (!currentImage) throw new Error("No image selected");
+        
+        if (!currentImageResult) return currentImage;
+
+        // If the user is viewing a specific result, use that as input for the next operation
+        switch (activeTab) {
+            case 'cleaned':
+                return currentImageResult.cleaned || currentImage;
+            case 'removedBg':
+                return currentImageResult.removedBg || currentImage;
+            case 'themedBg':
+                return currentImageResult.themedBg || currentImage;
+            case 'filtered':
+                return currentImageResult.filtered || currentImage;
+            case 'crops': // Crops are rarely used as input for full image edit, fallback to original
+            case 'report':
+            case 'original':
+            default:
+                return currentImage;
+        }
+    };
+
+    // History Management
+    const pushHistory = () => {
+        setHistory(prev => [
+            ...prev.slice(-19), // Keep last 20 states
+            { 
+                results: imageResults, 
+                tab: activeTab,
+                settings: settings,
+                filter: {
+                    selected: selectedFilter,
+                    customPrompt: customFilterPrompt
+                }
+            }
+        ]);
+    };
+
+    const handleUndo = () => {
+        if (history.length === 0) return;
+        const previousState = history[history.length - 1];
+        
+        // Remove last entry from history
+        setHistory(prev => prev.slice(0, -1));
+        
+        // Restore state
+        setImageResults(previousState.results);
+        setActiveTab(previousState.tab);
+        setSettings(previousState.settings);
+        setSelectedFilter(previousState.filter.selected);
+        setCustomFilterPrompt(previousState.filter.customPrompt);
+        
+        // Update ref to prevent auto-switch logic from interfering
+        prevImageResultRef.current = previousState.results[currentImage?.name] || null;
+    };
+
+    const processSingleImage = async (image: File, index: number, total: number, useChaining = false) => {
         const updateImageResult = (imageFile: File, data: Partial<ImageResult>) => {
             setImageResults(prev => ({
                 ...prev,
@@ -97,7 +197,15 @@ const App: React.FC = () => {
 
         try {
             setStepMessage(t.stepEditing);
-            const editedImageUrl = await runImageEditing(image, settings);
+            
+            // Save history only if we are doing single image editing (chaining)
+            if (useChaining) {
+                pushHistory();
+            }
+
+            const inputImage = useChaining ? getActiveImageSource() : image;
+            
+            const editedImageUrl = await runImageEditing(inputImage, settings);
 
             const resultUpdate: Partial<ImageResult> = {};
             if (settings.mode === 'cleanup-only') resultUpdate.cleaned = editedImageUrl;
@@ -109,7 +217,7 @@ const App: React.FC = () => {
             updateImageResult(image, resultUpdate);
 
             setStepMessage(t.stepAnalyzing);
-            const report = await generateImageReport(image, settings);
+            const report = await generateImageReport(inputImage, settings);
             updateImageResult(image, { report });
 
             if (settings.autoCrop) {
@@ -121,7 +229,6 @@ const App: React.FC = () => {
             const errorMessage = `Error processing image "${image.name}": ${e.message}`;
             setError(errorMessage);
             console.error(e);
-            // Stop further processing on error for this image
             throw e;
         }
     };
@@ -133,7 +240,8 @@ const App: React.FC = () => {
         setProcessingMessage(t.processingSingle);
         setError(null);
         
-        await processSingleImage(currentImage, 0, 1).catch(() => {});
+        // Pass true for useChaining to use the currently visible image as input
+        await processSingleImage(currentImage, 0, 1, true).catch(() => {});
 
         setIsProcessing(false);
         setProcessingMessage('');
@@ -148,10 +256,10 @@ const App: React.FC = () => {
         for (const [index, image] of images.entries()) {
             setCurrentIndex(index); 
             try {
-                await processSingleImage(image, index, images.length);
+                // Batch processing uses original images (false for chaining)
+                // We don't save history per step in batch to avoid flooding
+                await processSingleImage(image, index, images.length, false);
             } catch (e) {
-                // The error is already set by processSingleImage.
-                // We stop the batch if one image fails.
                 break;
             }
         }
@@ -174,23 +282,23 @@ const App: React.FC = () => {
         setProcessingMessage(t.processingStep(1, 1, t.stepFiltering));
         setError(null);
 
-        const updateCurrentImageResult = (data: Partial<ImageResult>) => {
-            if (currentImage) {
-                setImageResults(prev => ({
-                    ...prev,
-                    [currentImage.name]: {
-                        ...prev[currentImage.name],
-                        original: prev[currentImage.name]?.original || URL.createObjectURL(currentImage),
-                        cropProposals: prev[currentImage.name]?.cropProposals || [],
-                        ...data,
-                    },
-                }));
-            }
-        };
-
         try {
-            const { imageUrl, enhancedPrompt } = await applyAIFilter(currentImage, filterPrompt);
-            updateCurrentImageResult({ filtered: imageUrl, enhancedFilterPrompt: enhancedPrompt });
+            // Save state before applying filter
+            pushHistory();
+
+            const inputImage = getActiveImageSource();
+            const { imageUrl, enhancedPrompt } = await applyAIFilter(inputImage, filterPrompt);
+            
+            setImageResults(prev => ({
+                ...prev,
+                [currentImage.name]: {
+                    ...prev[currentImage.name],
+                    original: prev[currentImage.name]?.original || URL.createObjectURL(currentImage),
+                    filtered: imageUrl,
+                    enhancedFilterPrompt: enhancedPrompt
+                },
+            }));
+
         } catch(e: any) {
             setError(`An error occurred while applying the filter: ${e.message}`);
             console.error(e);
@@ -200,6 +308,61 @@ const App: React.FC = () => {
         }
     };
     
+    const handleInvertFilterResult = async () => {
+        if (!currentImage || !currentImageResult?.filtered) return;
+
+        setIsProcessing(true);
+        setProcessingMessage('Inverting colors...'); 
+        
+        try {
+            pushHistory();
+
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.src = currentImageResult.filtered;
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+            });
+
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) throw new Error("Canvas context failed");
+
+            ctx.drawImage(img, 0, 0);
+            
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            for (let i = 0; i < data.length; i += 4) {
+                data[i] = 255 - data[i];     // r
+                data[i + 1] = 255 - data[i + 1]; // g
+                data[i + 2] = 255 - data[i + 2]; // b
+            }
+            ctx.putImageData(imageData, 0, 0);
+            
+            const invertedUrl = canvas.toDataURL(currentImageResult.filtered.startsWith('data:image/png') ? 'image/png' : 'image/jpeg');
+
+            setImageResults(prev => ({
+                ...prev,
+                [currentImage.name]: {
+                    ...prev[currentImage.name],
+                    filtered: invertedUrl
+                }
+            }));
+            
+            setActiveTab('filtered');
+
+        } catch (e: any) {
+            setError(`Inversion failed: ${e.message}`);
+            console.error(e);
+        } finally {
+            setIsProcessing(false);
+            setProcessingMessage('');
+        }
+    };
+
     const handleGenerateCollage = async () => {
         const selectedImages = selectedCollageIndices.map(i => images[i]);
         if (selectedImages.length < 2) return;
@@ -227,7 +390,8 @@ const App: React.FC = () => {
         setError(null);
         setSocialPosts([]);
         try {
-            const posts = await generateSocialPosts(currentImage, context, language);
+            const inputImage = getActiveImageSource();
+            const posts = await generateSocialPosts(inputImage, context, language);
             setSocialPosts(posts);
         } catch (e: any)
 {
@@ -245,7 +409,8 @@ const App: React.FC = () => {
         setError(null);
         setMakerWorldPost(null);
         try {
-            const post = await generateMakerWorldPost(currentImage, context, language);
+            const inputImage = getActiveImageSource();
+            const post = await generateMakerWorldPost(inputImage, context, language);
             setMakerWorldPost(post);
         } catch (e: any) {
             setError(`An error occurred during MakerWorld post generation: ${e.message}`);
@@ -268,6 +433,7 @@ const App: React.FC = () => {
         setImages([]);
         setCurrentIndex(0);
         setImageResults({});
+        setHistory([]); // Clear history
         setIsProcessing(false);
         setError(null);
         setProcessingMessage('');
@@ -283,10 +449,13 @@ const App: React.FC = () => {
         setIsGeneratingPosts(false);
         setMakerWorldPost(null);
         setIsGeneratingMakerWorldPost(false);
+        setActiveTab('original');
     };
 
     const isAnythingProcessing = isProcessing || isCreatingCollage || isGeneratingPosts || isGeneratingMakerWorldPost;
     
+    const hasFilteredResult = !!currentImageResult?.filtered;
+
     return (
         <div className="bg-gray-900 text-white min-h-screen font-sans">
             <input {...getInputProps()} />
@@ -310,6 +479,16 @@ const App: React.FC = () => {
                             <div className="flex items-center gap-2">
                                 {images.length > 0 && (
                                     <>
+                                         <button
+                                            onClick={handleUndo}
+                                            disabled={history.length === 0}
+                                            className="hidden sm:flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded-lg transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
+                                            title={t.undo}
+                                        >
+                                            <UndoIcon className="w-5 h-5" />
+                                            <span>{t.undo}</span>
+                                        </button>
+                                        <div className="w-px h-8 bg-gray-700 mx-1 hidden sm:block"></div>
                                         <button
                                             onClick={handleProcessCurrentImage}
                                             disabled={isAnythingProcessing}
@@ -376,6 +555,8 @@ const App: React.FC = () => {
                                     setCustomFilterPrompt={setCustomFilterPrompt}
                                     onApplyFilter={onApplyFilter}
                                     isImageLoaded={!!currentImage}
+                                    onInvertFilter={handleInvertFilterResult}
+                                    hasFilteredResult={hasFilteredResult}
                                 />
                             </div>
                             <div className="lg:col-span-2">
@@ -385,6 +566,8 @@ const App: React.FC = () => {
                                     originalImage={currentImage}
                                     onRegenerateTheme={handleProcessCurrentImage} 
                                     isProcessing={isProcessing}
+                                    activeTab={activeTab}
+                                    setActiveTab={setActiveTab}
                                 />
                             </div>
                         </div>

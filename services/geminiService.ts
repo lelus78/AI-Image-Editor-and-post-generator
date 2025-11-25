@@ -1,8 +1,27 @@
-
 import { GoogleGenAI, Modality, Type, GenerateContentResponse, Part } from "@google/genai";
 import type { Settings, AspectRatio, CropProposal, SocialPost, Report, MakerWorldPost } from '../types';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+
+// Helper to handle both File objects and Base64 strings
+const prepareImageInput = async (input: File | string): Promise<Part> => {
+    if (input instanceof File) {
+        return fileToGenerativePart(input);
+    } else if (typeof input === 'string') {
+        // Validate basic data URL format
+        if (input.startsWith('data:')) {
+             return base64ToGenerativePart(input);
+        } else if (input.startsWith('blob:')) {
+             // Handle blob URLs if necessary, though usually we store base64 or File
+             // For this app, we primarily store base64 in ImageResult after processing
+             // If it's a blob URL from URL.createObjectURL(file), we can't fetch it easily inside the service 
+             // without fetching the blob content first.
+             // However, the app flow ensures 'string' inputs here are usually the Base64 results from previous steps.
+             throw new Error("Blob URLs not directly supported in service chaining. Use base64 string.");
+        }
+    }
+    throw new Error("Invalid image input type.");
+};
 
 const fileToGenerativePart = async (file: File): Promise<Part> => {
   const base64EncodedDataPromise = new Promise<string>((resolve, reject) => {
@@ -120,8 +139,8 @@ const buildImageEditingPrompt = (settings: Settings): string => {
     return `${task} ${safetyInstruction}`;
 };
 
-export const runImageEditing = async (image: File, settings: Settings) => {
-    const imagePart = await fileToGenerativePart(image);
+export const runImageEditing = async (image: File | string, settings: Settings) => {
+    const imagePart = await prepareImageInput(image);
     const promptString = buildImageEditingPrompt(settings);
     const textPart = { text: promptString };
 
@@ -173,6 +192,7 @@ export const runAutoCrop = async (image: File | string, aspectRatios: AspectRati
     // 1. Prepare Image Data
     let imageBase64 = '';
     let mimeType = 'image/jpeg';
+    
     if (typeof image === 'string') {
         imageBase64 = image; 
         const match = image.match(/^data:(.*);base64,/);
@@ -187,8 +207,6 @@ export const runAutoCrop = async (image: File | string, aspectRatios: AspectRati
     const { width, height } = await getImageDimensions(imageBase64);
 
     // 2. Ask Gemini for Crop Coordinates (Analysis)
-    // We use the text model to get coordinates instead of asking the image model to generate pixels,
-    // which is more reliable for "cropping" existing content.
     const analysisPrompt = {
         text: `Analyze this image (Dimensions: ${width}x${height}) and provide optimal crop coordinates for the following aspect ratios: ${aspectRatios.join(', ')}.
         
@@ -256,10 +274,8 @@ export const runAutoCrop = async (image: File | string, aspectRatios: AspectRati
     const suggestions = parsed.crops || [];
 
     // 3. Perform Client-Side Cropping
-    // We physically crop the image using the Canvas API based on the AI's coordinates.
     const results = await Promise.all(suggestions.map(async (s: any) => {
         try {
-            // Ensure we process only requested ratios (in case AI hallucinates extra ones)
             if (!aspectRatios.includes(s.aspectRatio as AspectRatio)) return null;
 
             const croppedUrl = await performClientSideCrop(imageBase64, {
@@ -282,8 +298,8 @@ export const runAutoCrop = async (image: File | string, aspectRatios: AspectRati
 };
 
 
-export const applyAIFilter = async (image: File, filterPrompt: string) => {
-    const imagePart = await fileToGenerativePart(image);
+export const applyAIFilter = async (image: File | string, filterPrompt: string) => {
+    const imagePart = await prepareImageInput(image);
     const textPart = {
         text: `You are an expert photo editor. Your task is to apply an AI filter to the user's image.
         Filter instruction: "${filterPrompt}".
@@ -331,6 +347,8 @@ export const applyAIFilter = async (image: File, filterPrompt: string) => {
 };
 
 export const generateCollage = async (images: File[], theme: string) => {
+    // Collage generally always uses multiple source files, so we keep File[] for now
+    // or we could accept (File|string)[] if we wanted to support using edited images in collage
     const imageParts = await Promise.all(images.map(fileToGenerativePart));
     const themePrompt = {
         text: `Create an artistic collage using all the provided images. Arrange them creatively based on the following theme: "${theme}". The final output should be a single, cohesive image.`
@@ -376,8 +394,8 @@ export const generateCollage = async (images: File[], theme: string) => {
     };
 };
 
-export const generateSocialPosts = async (image: File, context: string, language: 'en' | 'it'): Promise<SocialPost[]> => {
-    const imagePart = await fileToGenerativePart(image);
+export const generateSocialPosts = async (image: File | string, context: string, language: 'en' | 'it'): Promise<SocialPost[]> => {
+    const imagePart = await prepareImageInput(image);
     const languageInstruction = language === 'it' ? 'Italian' : 'English';
     const textPart = {
         text: `Analyze the provided image and generate 2 engaging social media posts in ${languageInstruction} for different platforms (e.g., Instagram, Twitter/X).
@@ -427,8 +445,8 @@ export const generateSocialPosts = async (image: File, context: string, language
     return parsed.posts || [];
 };
 
-export const generateImageReport = async (image: File, settings: Settings): Promise<Report> => {
-    const imagePart = await fileToGenerativePart(image);
+export const generateImageReport = async (image: File | string, settings: Settings): Promise<Report> => {
+    const imagePart = await prepareImageInput(image);
     
     const interventionMap: Record<Settings['mode'], string> = {
         'cleanup-only': 'Light Cleanup: Minor blemishes, dust, or scratches were removed.',
@@ -490,8 +508,8 @@ export const generateImageReport = async (image: File, settings: Settings): Prom
     };
 };
 
-export const generateMakerWorldPost = async (image: File, context: string, language: 'en' | 'it'): Promise<MakerWorldPost> => {
-    const imagePart = await fileToGenerativePart(image);
+export const generateMakerWorldPost = async (image: File | string, context: string, language: 'en' | 'it'): Promise<MakerWorldPost> => {
+    const imagePart = await prepareImageInput(image);
     const languageInstruction = language === 'it' ? 'Italian' : 'English';
     const prompt = {
         text: `You are an expert content creator for 3D printing communities like MakerWorld. Your task is to analyze the provided image and the user's context to generate a post for a 3D model.

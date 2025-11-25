@@ -1,8 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import type { ImageResult } from '../types';
-import { DownloadIcon, RefreshIcon } from './IconComponents';
+import { DownloadIcon, RefreshIcon, ZoomInIcon, ZoomOutIcon, ExpandIcon } from './IconComponents';
 import { translations } from '../translations';
+
+export type ViewTab = 'original' | 'cleaned' | 'removedBg' | 'themedBg' | 'crops' | 'filtered' | 'report';
 
 interface ImageViewerProps {
   imageResult: ImageResult | null;
@@ -10,9 +12,9 @@ interface ImageViewerProps {
   onRegenerateTheme: () => void;
   isProcessing: boolean;
   t: typeof translations.en;
+  activeTab: ViewTab;
+  setActiveTab: (tab: ViewTab) => void;
 }
-
-type ViewTab = 'original' | 'cleaned' | 'removedBg' | 'themedBg' | 'crops' | 'filtered' | 'report';
 
 const downloadImage = (url: string, filename: string) => {
     const link = document.createElement('a');
@@ -23,30 +25,141 @@ const downloadImage = (url: string, filename: string) => {
     document.body.removeChild(link);
 };
 
-export const ImageViewer: React.FC<ImageViewerProps> = ({ t, imageResult, originalImage, onRegenerateTheme, isProcessing }) => {
-  const [activeTab, setActiveTab] = useState<ViewTab>('original');
-  const [isInverted, setIsInverted] = useState(false);
-  const imageRef = useRef<HTMLImageElement>(null);
-  const prevImageResultRef = useRef<ImageResult | null>(null);
+// Internal component for Zoom/Pan functionality
+interface ZoomableImageProps {
+  src: string;
+  alt: string;
+  style?: React.CSSProperties;
+  className?: string;
+  isTransparent?: boolean;
+  t: typeof translations.en;
+}
 
+const ZoomableImage: React.FC<ZoomableImageProps> = ({ src, alt, style, className, isTransparent, t }) => {
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [startPos, setStartPos] = useState({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleZoomIn = () => {
+    setScale(prev => Math.min(prev + 0.5, 5));
+  };
+
+  const handleZoomOut = () => {
+    setScale(prev => Math.max(prev - 0.5, 1));
+  };
+
+  const handleReset = () => {
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
+  };
+
+  // Reset position if we zoom out completely
   useEffect(() => {
-    if (imageResult) {
-      if (imageResult.filtered && !prevImageResultRef.current?.filtered) {
-        setActiveTab('filtered');
-      } else if (imageResult.themedBg && !prevImageResultRef.current?.themedBg) {
-        setActiveTab('themedBg');
-      } else if (imageResult.cleaned && !prevImageResultRef.current?.cleaned) {
-        setActiveTab('cleaned');
-      } else if (imageResult.removedBg && !prevImageResultRef.current?.removedBg) {
-        setActiveTab('removedBg');
-      } else if (!prevImageResultRef.current || !imageResult) {
-        setActiveTab('original');
+      if (scale === 1) {
+          setPosition({ x: 0, y: 0 });
       }
-    } else {
-        setActiveTab('original');
+  }, [scale]);
+
+  // Use a native event listener with { passive: false } to reliably prevent page scroll
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const onWheel = (e: WheelEvent) => {
+        if (e.cancelable) {
+            e.preventDefault();
+        }
+        const delta = e.deltaY * -0.001;
+        
+        setScale(prevScale => {
+            return Math.min(Math.max(prevScale + delta, 1), 5);
+        });
+    };
+
+    container.addEventListener('wheel', onWheel, { passive: false });
+
+    return () => {
+        container.removeEventListener('wheel', onWheel);
+    };
+  }, []);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (scale > 1) {
+      setIsDragging(true);
+      setStartPos({ x: e.clientX - position.x, y: e.clientY - position.y });
+      e.preventDefault();
     }
-    prevImageResultRef.current = imageResult;
-  }, [imageResult]);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    setPosition({
+      x: e.clientX - startPos.x,
+      y: e.clientY - startPos.y
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Reset state when src changes
+  useEffect(() => {
+    handleReset();
+  }, [src]);
+
+  const cursorStyle = scale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default';
+  const containerClasses = isTransparent 
+    ? `bg-grid-pattern p-4 rounded-lg relative overflow-hidden group ${className?.includes('max-h') ? className : ''}` 
+    : `relative overflow-hidden rounded-lg group ${className?.includes('max-h') ? className : ''}`;
+  
+  // We strip layout classes from the img itself because it's now managed by the container wrapper for zoom
+  const imageClasses = "w-full h-full object-contain transition-transform duration-75 ease-out max-h-[70vh]";
+
+  return (
+    <div 
+      ref={containerRef}
+      className={`${containerClasses} flex items-center justify-center bg-gray-900/20 min-h-[300px] select-none`}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      style={{ cursor: cursorStyle }}
+    >
+       <img 
+          src={src} 
+          alt={alt} 
+          className={imageClasses} 
+          crossOrigin="anonymous" 
+          style={{
+            ...style,
+            transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+          }} 
+          draggable={false}
+        />
+        
+        {/* Floating Zoom Controls */}
+        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex items-center gap-2 bg-gray-800/80 backdrop-blur-md p-1.5 rounded-full border border-gray-700 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg z-10">
+            <button onClick={handleZoomOut} className="p-1.5 hover:bg-gray-700 rounded-full text-gray-300 hover:text-white transition-colors" title={t.zoomOut}>
+                <ZoomOutIcon className="w-5 h-5" />
+            </button>
+            <span className="text-xs font-mono w-10 text-center text-gray-300">{Math.round(scale * 100)}%</span>
+            <button onClick={handleZoomIn} className="p-1.5 hover:bg-gray-700 rounded-full text-gray-300 hover:text-white transition-colors" title={t.zoomIn}>
+                <ZoomInIcon className="w-5 h-5" />
+            </button>
+            <div className="w-px h-4 bg-gray-600 mx-1"></div>
+            <button onClick={handleReset} className="p-1.5 hover:bg-gray-700 rounded-full text-gray-300 hover:text-white transition-colors" title={t.resetZoom}>
+                <ExpandIcon className="w-4 h-4" />
+            </button>
+        </div>
+    </div>
+  );
+};
+
+export const ImageViewer: React.FC<ImageViewerProps> = ({ t, imageResult, originalImage, onRegenerateTheme, isProcessing, activeTab, setActiveTab }) => {
+  const [isInverted, setIsInverted] = useState(false);
 
   // Reset inversion when tab changes or image changes
   useEffect(() => {
@@ -114,17 +227,19 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ t, imageResult, origin
     const imageStyle = isInverted ? { filter: 'invert(1)' } : undefined;
 
     const mainImage = (src: string, alt: string, isTransparent = false) => {
-      const containerClasses = isTransparent ? "bg-grid-pattern p-4 rounded-lg" : "";
-      const imageClasses = isTransparent ? "w-full h-auto object-contain max-h-[65vh]" : "w-full h-auto object-contain rounded-lg max-h-[70vh]";
       return (
-        <div className={containerClasses}>
-          <img ref={imageRef} src={src} alt={alt} className={imageClasses} crossOrigin="anonymous" style={imageStyle} />
-        </div>
+        <ZoomableImage 
+            src={src} 
+            alt={alt} 
+            isTransparent={isTransparent} 
+            style={imageStyle} 
+            t={t}
+        />
       );
     };
 
     const renderPromptBox = (title: string, prompt: string, onRegen?: () => void) => (
-      <div className="text-left bg-gray-900/50 p-3 rounded-lg max-w-2xl mx-auto">
+      <div className="text-left bg-gray-900/50 p-3 rounded-lg max-w-2xl mx-auto mt-2">
         <div className="flex justify-between items-center mb-1">
             <h4 className="text-sm font-semibold text-indigo-400">{title}</h4>
             {onRegen && (
@@ -144,15 +259,15 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ t, imageResult, origin
         return imageResult?.removedBg ? mainImage(imageResult.removedBg, t.removedBg, true) : <p>{t.notGenerated}</p>;
       case 'themedBg':
         return imageResult?.themedBg ? (
-            <div className="w-full text-center space-y-4">
-              <img src={imageResult.themedBg} alt={t.themedBg} className="w-full h-auto object-contain rounded-lg max-h-[60vh]" style={imageStyle}/>
+            <div className="w-full text-center h-full flex flex-col">
+              {mainImage(imageResult.themedBg, t.themedBg)}
               {imageResult.enhancedTheme && renderPromptBox(t.enhancedPromptUsed, imageResult.enhancedTheme, onRegenerateTheme)}
             </div>
           ) : <p>{t.notGenerated}</p>;
       case 'filtered':
         return imageResult?.filtered ? (
-            <div className="w-full text-center space-y-4">
-              <img src={imageResult.filtered} alt={t.filtered} className="w-full h-auto object-contain rounded-lg max-h-[60vh]" style={imageStyle}/>
+            <div className="w-full text-center h-full flex flex-col">
+              {mainImage(imageResult.filtered, t.filtered)}
               {imageResult.enhancedFilterPrompt && renderPromptBox(t.enhancedFilterPrompt, imageResult.enhancedFilterPrompt)}
             </div>
           ) : <p>{t.notGenerated}</p>;
@@ -261,7 +376,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ t, imageResult, origin
       <div className="flex justify-center items-center min-h-[300px] relative">
         {renderContent()}
         {currentDownload && (
-            <button onClick={() => processAndDownload(currentDownload.url, currentDownload.filename)} aria-label="Download current view" className="absolute top-2 right-2 bg-gray-900/60 hover:bg-gray-900/80 p-2 rounded-full text-white transition-colors">
+            <button onClick={() => processAndDownload(currentDownload.url, currentDownload.filename)} aria-label="Download current view" className="absolute top-2 right-2 bg-gray-900/60 hover:bg-gray-900/80 p-2 rounded-full text-white transition-colors z-20">
                 <DownloadIcon className="w-6 h-6" />
             </button>
         )}
