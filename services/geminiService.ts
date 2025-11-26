@@ -1,7 +1,18 @@
-import { GoogleGenAI, Modality, Type, GenerateContentResponse, Part } from "@google/genai";
+
+import { GoogleGenAI, Modality, Type, GenerateContentResponse, Part, FinishReason } from "@google/genai";
 import type { Settings, AspectRatio, CropProposal, SocialPost, Report, MakerWorldPost } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+// Helper to safely get API Key without crashing if process is undefined
+const getApiKey = (): string => {
+    try {
+        if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+            return process.env.API_KEY;
+        }
+    } catch (e) {
+        // Ignore ReferenceError
+    }
+    throw new Error("API Key not found. Please ensure you have selected a key and that your browser is not blocking the environment variables.");
+};
 
 // Helper to handle both File objects and Base64 strings
 const prepareImageInput = async (input: File | string): Promise<Part> => {
@@ -12,11 +23,6 @@ const prepareImageInput = async (input: File | string): Promise<Part> => {
         if (input.startsWith('data:')) {
              return base64ToGenerativePart(input);
         } else if (input.startsWith('blob:')) {
-             // Handle blob URLs if necessary, though usually we store base64 or File
-             // For this app, we primarily store base64 in ImageResult after processing
-             // If it's a blob URL from URL.createObjectURL(file), we can't fetch it easily inside the service 
-             // without fetching the blob content first.
-             // However, the app flow ensures 'string' inputs here are usually the Base64 results from previous steps.
              throw new Error("Blob URLs not directly supported in service chaining. Use base64 string.");
         }
     }
@@ -139,13 +145,17 @@ const buildImageEditingPrompt = (settings: Settings): string => {
     return `${task} ${safetyInstruction}`;
 };
 
-export const runImageEditing = async (image: File | string, settings: Settings) => {
+export const runImageEditing = async (image: File | string, settings: Settings, useProModel: boolean = false) => {
+    const ai = new GoogleGenAI({ apiKey: getApiKey() });
     const imagePart = await prepareImageInput(image);
     const promptString = buildImageEditingPrompt(settings);
     const textPart = { text: promptString };
 
+    // Use Pro model if selected, otherwise fallback to Flash-Image (Free tier friendly)
+    const model = useProModel ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
+
     const response: GenerateContentResponse = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
+        model: model,
         contents: {
             parts: [imagePart, textPart],
         },
@@ -173,11 +183,11 @@ export const runImageEditing = async (image: File | string, settings: Settings) 
     
     const finishReason = candidate?.finishReason;
     let errorMessage = 'No image was generated.';
-    if (finishReason === 'SAFETY') {
+    if (finishReason === FinishReason.SAFETY) {
         errorMessage = 'Image generation failed due to safety policies. Please try a different image or prompt.';
-    } else if (finishReason === 'IMAGE_OTHER' || finishReason === 'RECITATION' || finishReason === 'OTHER') {
+    } else if (finishReason === FinishReason.RECITATION || finishReason === FinishReason.OTHER) {
         errorMessage = `Image generation failed (${finishReason}). This can happen with complex instructions. Try simplifying the theme or using a different image.`;
-    } else if (finishReason && finishReason !== 'STOP') {
+    } else if (finishReason && finishReason !== FinishReason.STOP) {
         errorMessage = `Image generation failed with reason: ${finishReason}.`
     }
 
@@ -185,6 +195,7 @@ export const runImageEditing = async (image: File | string, settings: Settings) 
 };
 
 export const runAutoCrop = async (image: File | string, aspectRatios: AspectRatio[]): Promise<CropProposal[]> => {
+    const ai = new GoogleGenAI({ apiKey: getApiKey() });
     if (aspectRatios.length === 0) {
         return [];
     }
@@ -298,7 +309,8 @@ export const runAutoCrop = async (image: File | string, aspectRatios: AspectRati
 };
 
 
-export const applyAIFilter = async (image: File | string, filterPrompt: string) => {
+export const applyAIFilter = async (image: File | string, filterPrompt: string, useProModel: boolean = false) => {
+    const ai = new GoogleGenAI({ apiKey: getApiKey() });
     const imagePart = await prepareImageInput(image);
     const textPart = {
         text: `You are an expert photo editor. Your task is to apply an AI filter to the user's image.
@@ -309,9 +321,12 @@ export const applyAIFilter = async (image: File | string, filterPrompt: string) 
         text: `Enhance this user prompt to be more descriptive and artistic for an image generation model. User prompt: "${filterPrompt}"`
     };
 
+    // Use Pro model if selected, otherwise fallback to Flash-Image
+    const model = useProModel ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
+
     const [editResponse, promptResponse] = await Promise.all([
         ai.models.generateContent({
-            model: 'gemini-2.5-flash-image',
+            model: model,
             contents: { parts: [imagePart, textPart] },
             config: {
                 responseModalities: [Modality.IMAGE],
@@ -334,7 +349,7 @@ export const applyAIFilter = async (image: File | string, filterPrompt: string) 
     
     if (!imageUrl) {
         const finishReason = editResponse.candidates?.[0]?.finishReason;
-        if(finishReason && finishReason !== 'STOP') {
+        if(finishReason && finishReason !== FinishReason.STOP) {
             throw new Error(`Applying AI filter failed. The model stopped with reason: ${finishReason}.`);
         }
         throw new Error('No image was generated for the filter.');
@@ -346,9 +361,9 @@ export const applyAIFilter = async (image: File | string, filterPrompt: string) 
     };
 };
 
-export const generateCollage = async (images: File[], theme: string) => {
+export const generateCollage = async (images: File[], theme: string, useProModel: boolean = false) => {
+    const ai = new GoogleGenAI({ apiKey: getApiKey() });
     // Collage generally always uses multiple source files, so we keep File[] for now
-    // or we could accept (File|string)[] if we wanted to support using edited images in collage
     const imageParts = await Promise.all(images.map(fileToGenerativePart));
     const themePrompt = {
         text: `Create an artistic collage using all the provided images. Arrange them creatively based on the following theme: "${theme}". The final output should be a single, cohesive image.`
@@ -357,9 +372,12 @@ export const generateCollage = async (images: File[], theme: string) => {
         text: `Enhance this user prompt for a collage to be more descriptive and artistic for an image generation model. User prompt: "${theme}"`
     };
 
+    // Use Pro model if selected, otherwise fallback to Flash-Image
+    const model = useProModel ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
+
     const [collageResponse, promptResponse] = await Promise.all([
         ai.models.generateContent({
-            model: 'gemini-2.5-flash-image',
+            model: model,
             contents: { parts: [...imageParts, themePrompt] },
             config: {
                 responseModalities: [Modality.IMAGE],
@@ -382,7 +400,7 @@ export const generateCollage = async (images: File[], theme: string) => {
 
     if (!imageUrl) {
         const finishReason = collageResponse.candidates?.[0]?.finishReason;
-        if(finishReason && finishReason !== 'STOP') {
+        if(finishReason && finishReason !== FinishReason.STOP) {
             throw new Error(`Collage generation failed. The model stopped with reason: ${finishReason}.`);
         }
         throw new Error('No collage was generated.');
@@ -395,6 +413,7 @@ export const generateCollage = async (images: File[], theme: string) => {
 };
 
 export const generateSocialPosts = async (image: File | string, context: string, language: 'en' | 'it'): Promise<SocialPost[]> => {
+    const ai = new GoogleGenAI({ apiKey: getApiKey() });
     const imagePart = await prepareImageInput(image);
     const languageInstruction = language === 'it' ? 'Italian' : 'English';
     const textPart = {
@@ -446,6 +465,7 @@ export const generateSocialPosts = async (image: File | string, context: string,
 };
 
 export const generateImageReport = async (image: File | string, settings: Settings): Promise<Report> => {
+    const ai = new GoogleGenAI({ apiKey: getApiKey() });
     const imagePart = await prepareImageInput(image);
     
     const interventionMap: Record<Settings['mode'], string> = {
@@ -509,6 +529,7 @@ export const generateImageReport = async (image: File | string, settings: Settin
 };
 
 export const generateMakerWorldPost = async (image: File | string, context: string, language: 'en' | 'it'): Promise<MakerWorldPost> => {
+    const ai = new GoogleGenAI({ apiKey: getApiKey() });
     const imagePart = await prepareImageInput(image);
     const languageInstruction = language === 'it' ? 'Italian' : 'English';
     const prompt = {

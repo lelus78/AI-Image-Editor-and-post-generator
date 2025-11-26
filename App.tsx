@@ -38,6 +38,8 @@ interface HistoryState {
 }
 
 const App: React.FC = () => {
+    const [hasApiKey, setHasApiKey] = useState(false);
+    const [isProMode, setIsProMode] = useState(false);
     const [images, setImages] = useState<File[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [imageResults, setImageResults] = useState<Record<string, ImageResult>>({});
@@ -84,6 +86,44 @@ const App: React.FC = () => {
     const [makerWorldPost, setMakerWorldPost] = useState<MakerWorldPost | null>(null);
     const [isGeneratingMakerWorldPost, setIsGeneratingMakerWorldPost] = useState(false);
 
+    useEffect(() => {
+        const aistudio = (window as any).aistudio;
+        if (aistudio) {
+            aistudio.hasSelectedApiKey().then((hasKey: boolean) => {
+                if (hasKey) {
+                    setHasApiKey(true);
+                    setIsProMode(true);
+                }
+            });
+        }
+    }, []);
+
+    const handleSelectKey = async () => {
+        const aistudio = (window as any).aistudio;
+        if (aistudio) {
+            try {
+                await aistudio.openSelectKey();
+                setHasApiKey(true);
+                setIsProMode(true);
+                setError(null);
+            } catch (e) {
+                console.error("Key selection failed or cancelled", e);
+            }
+        } else {
+             console.warn("window.aistudio not available");
+        }
+    };
+
+    const handleUseFreeVersion = () => {
+        setHasApiKey(true);
+        setIsProMode(false);
+        setError(null);
+    };
+
+    const handleToggleProMode = () => {
+        setIsProMode(!isProMode);
+    };
+
     const onDrop = useCallback((acceptedFiles: File[]) => {
         const imageFiles = acceptedFiles.filter(file => file.type.startsWith('image/'));
         setImages(prev => [...prev, ...imageFiles]);
@@ -111,8 +151,6 @@ const App: React.FC = () => {
             setActiveTab('removedBg');
           } else if (!prevImageResultRef.current || !currentImageResult) {
              // If result exists but nothing specific changed (or first load), usually stay or go to original.
-             // However, when Undoing, we might want to stay on the restored tab.
-             // The useEffect below controls that, but here we just want to catch *newly generated* stuff.
           }
         } else {
             setActiveTab('original');
@@ -136,7 +174,7 @@ const App: React.FC = () => {
                 return currentImageResult.themedBg || currentImage;
             case 'filtered':
                 return currentImageResult.filtered || currentImage;
-            case 'crops': // Crops are rarely used as input for full image edit, fallback to original
+            case 'crops': 
             case 'report':
             case 'original':
             default:
@@ -178,6 +216,27 @@ const App: React.FC = () => {
         prevImageResultRef.current = previousState.results[currentImage?.name] || null;
     };
 
+    const handleApiError = (e: any) => {
+        const errorMsg = e.message || String(e);
+        console.error(e);
+        
+        let displayError = errorMsg;
+        
+        // Handle API key permissions or missing entity errors by prompting to re-select key
+        if (errorMsg.includes("Requested entity was not found") || errorMsg.includes("403") || errorMsg.includes("permission") || errorMsg.includes("API Key")) {
+             if (isProMode) {
+                setHasApiKey(false);
+                displayError = "API Key Error: Your selected key may be invalid, lacks permissions, or billing is not enabled for this project. Please re-select a valid key.";
+             }
+        }
+        
+        if (errorMsg.includes("fetch") || errorMsg.includes("NetworkError")) {
+             displayError = "Network Error: The request was blocked. Please check if you have an AdBlocker or firewall blocking Google API calls (generativelanguage.googleapis.com).";
+        }
+
+        setError(displayError);
+    };
+
     const processSingleImage = async (image: File, index: number, total: number, useChaining = false) => {
         const updateImageResult = (imageFile: File, data: Partial<ImageResult>) => {
             setImageResults(prev => ({
@@ -205,7 +264,12 @@ const App: React.FC = () => {
 
             const inputImage = useChaining ? getActiveImageSource() : image;
             
-            const editedImageUrl = await runImageEditing(inputImage, settings);
+            // Smart Routing:
+            // Themed BG -> Uses Pro model if isProMode is true.
+            // Cleanup / Remove BG -> Always uses Free model to save costs.
+            const useProModelForEditing = isProMode && settings.mode === 'themed-bg';
+
+            const editedImageUrl = await runImageEditing(inputImage, settings, useProModelForEditing);
 
             const resultUpdate: Partial<ImageResult> = {};
             if (settings.mode === 'cleanup-only') resultUpdate.cleaned = editedImageUrl;
@@ -226,9 +290,7 @@ const App: React.FC = () => {
                 updateImageResult(image, { cropProposals });
             }
         } catch (e: any) {
-            const errorMessage = `Error processing image "${image.name}": ${e.message}`;
-            setError(errorMessage);
-            console.error(e);
+            handleApiError(e);
             throw e;
         }
     };
@@ -287,7 +349,9 @@ const App: React.FC = () => {
             pushHistory();
 
             const inputImage = getActiveImageSource();
-            const { imageUrl, enhancedPrompt } = await applyAIFilter(inputImage, filterPrompt);
+            
+            // Smart Routing: AI Filters use Free model (Flash) as requested for "altri compiti"
+            const { imageUrl, enhancedPrompt } = await applyAIFilter(inputImage, filterPrompt, false);
             
             setImageResults(prev => ({
                 ...prev,
@@ -300,8 +364,7 @@ const App: React.FC = () => {
             }));
 
         } catch(e: any) {
-            setError(`An error occurred while applying the filter: ${e.message}`);
-            console.error(e);
+            handleApiError(e);
         } finally {
             setIsProcessing(false);
             setProcessingMessage('');
@@ -372,12 +435,12 @@ const App: React.FC = () => {
         setCollageResultUrl(null);
         setCollageEnhancedTheme(null);
         try {
-            const { imageUrl, enhancedTheme } = await generateCollage(selectedImages, collageTheme);
+            // Collage always uses Pro model if isProMode is active
+            const { imageUrl, enhancedTheme } = await generateCollage(selectedImages, collageTheme, isProMode);
             setCollageResultUrl(imageUrl);
             setCollageEnhancedTheme(enhancedTheme);
         } catch (e: any) {
-            setError(`An error occurred during collage creation: ${e.message}`);
-            console.error(e);
+            handleApiError(e);
         } finally {
             setIsCreatingCollage(false);
         }
@@ -395,8 +458,7 @@ const App: React.FC = () => {
             setSocialPosts(posts);
         } catch (e: any)
 {
-            setError(`An error occurred during post generation: ${e.message}`);
-            console.error(e);
+            handleApiError(e);
         } finally {
             setIsGeneratingPosts(false);
         }
@@ -413,8 +475,7 @@ const App: React.FC = () => {
             const post = await generateMakerWorldPost(inputImage, context, language);
             setMakerWorldPost(post);
         } catch (e: any) {
-            setError(`An error occurred during MakerWorld post generation: ${e.message}`);
-            console.error(e);
+            handleApiError(e);
         } finally {
             setIsGeneratingMakerWorldPost(false);
         }
@@ -452,6 +513,54 @@ const App: React.FC = () => {
         setActiveTab('original');
     };
 
+    if (!hasApiKey) {
+        return (
+            <div className="bg-gray-900 text-white min-h-screen font-sans flex flex-col items-center justify-center p-4">
+                 <div className="text-center space-y-8 max-w-2xl bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-700">
+                    <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-500">{t.welcomeTitle}</h1>
+                    <p className="text-gray-300 text-lg">{t.welcomeSubtitle}</p>
+                    
+                    {error && (
+                        <div className="bg-red-900/50 border border-red-700 text-red-300 p-4 rounded-lg text-sm text-left">
+                            <strong>Error:</strong> {error}
+                        </div>
+                    )}
+
+                    <div className="grid md:grid-cols-2 gap-6 mt-8">
+                        {/* Free Option */}
+                        <div className="bg-gray-700/50 p-6 rounded-xl border border-gray-600 hover:border-indigo-500 transition-colors">
+                            <h2 className="text-xl font-bold text-white mb-2">{t.freeModeTitle}</h2>
+                            <p className="text-gray-400 text-sm mb-6 min-h-[40px]">{t.freeModeDesc}</p>
+                            <button 
+                                onClick={handleUseFreeVersion}
+                                className="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+                            >
+                                {t.useFreeVersion}
+                            </button>
+                        </div>
+
+                        {/* Pro Option */}
+                        <div className="bg-gradient-to-br from-indigo-900/50 to-purple-900/50 p-6 rounded-xl border border-indigo-500/50 hover:border-indigo-400 transition-colors shadow-lg">
+                            <h2 className="text-xl font-bold text-indigo-300 mb-2">{t.proModeTitle}</h2>
+                            <p className="text-gray-400 text-sm mb-6 min-h-[40px]">{t.proModeDesc}</p>
+                            <button 
+                                onClick={handleSelectKey}
+                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-lg shadow-indigo-500/30"
+                            >
+                                {t.useProVersion}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="mt-6 pt-6 border-t border-gray-700 text-xs text-gray-500">
+                        For Pro features, billing must be enabled for your project. <br/>
+                        <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noreferrer" className="underline hover:text-indigo-400">Read more about pricing</a>
+                    </div>
+                 </div>
+            </div>
+        );
+    }
+
     const isAnythingProcessing = isProcessing || isCreatingCollage || isGeneratingPosts || isGeneratingMakerWorldPost;
     
     const hasFilteredResult = !!currentImageResult?.filtered;
@@ -461,9 +570,16 @@ const App: React.FC = () => {
             <input {...getInputProps()} />
             <header className="bg-gray-800/50 backdrop-blur-sm sticky top-0 z-10 p-4 border-b border-gray-700">
                 <div className="container mx-auto flex justify-between items-center">
-                    <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-500">{t.appTitle}</h1>
+                    <div className="flex items-center gap-3">
+                         <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-500">{t.appTitle}</h1>
+                         {isProMode ? (
+                             <span className="bg-indigo-900 text-indigo-200 text-[10px] font-bold px-2 py-0.5 rounded border border-indigo-700">{t.modePro}</span>
+                         ) : (
+                             <span className="bg-gray-700 text-gray-300 text-[10px] font-bold px-2 py-0.5 rounded border border-gray-600">{t.modeFree}</span>
+                         )}
+                    </div>
                     <div className="flex items-center gap-4">
-                        <div className="w-40">
+                        <div className="w-40 hidden md:block">
                             <LanguageSwitcher 
                                 language={uiLanguage} 
                                 setLanguage={setUiLanguage} 
@@ -477,6 +593,21 @@ const App: React.FC = () => {
                             </div>
                         ) : (
                             <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleSelectKey}
+                                    className={`text-xs py-1 px-3 rounded transition-colors mr-2 border ${isProMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-400 border-gray-700' : 'bg-indigo-900/50 text-indigo-200 border-indigo-800 hover:bg-indigo-800'}`}
+                                    title="Change API Key"
+                                >
+                                    {isProMode ? 'Key' : t.upgradeToPro}
+                                </button>
+                                {hasApiKey && (
+                                     <button
+                                        onClick={handleToggleProMode}
+                                        className={`text-xs py-1 px-3 rounded transition-colors mr-2 font-bold border ${isProMode ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-500' : 'bg-gray-600 hover:bg-gray-500 text-gray-200 border-gray-500'}`}
+                                    >
+                                        {isProMode ? t.switchToFree : t.switchToPro}
+                                    </button>
+                                )}
                                 {images.length > 0 && (
                                     <>
                                          <button
@@ -604,7 +735,11 @@ const App: React.FC = () => {
                         />
                     </>
                 )}
-                 {error && <div className="bg-red-900/50 border border-red-700 text-red-300 p-4 rounded-lg text-center">{error}</div>}
+                 {error && (
+                    <div className="bg-red-900/50 border border-red-700 text-red-300 p-4 rounded-lg text-center">
+                        <p className="font-bold">{error}</p>
+                    </div>
+                 )}
             </main>
 
             {images.length > 0 && (

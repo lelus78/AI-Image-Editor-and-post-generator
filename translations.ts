@@ -22,6 +22,21 @@ export const translations = {
     startOver: 'Start Over',
     addImages: 'Add Images',
     undo: 'Undo',
+    
+    // Auth / Modes
+    welcomeTitle: 'Welcome to Gemini Image Studio',
+    welcomeSubtitle: 'Choose your preferred mode to get started.',
+    proModeTitle: 'Pro Version',
+    proModeDesc: 'Uses Gemini 3.0 Pro models. Requires a paid Google Cloud Project API Key.',
+    freeModeTitle: 'Free Version',
+    freeModeDesc: 'Uses standard Gemini 2.5 Flash models. Fast and free for basic usage.',
+    useProVersion: 'Select API Key (Pro)',
+    useFreeVersion: 'Use Free Version',
+    modePro: 'PRO',
+    modeFree: 'FREE',
+    upgradeToPro: 'Upgrade to Pro',
+    switchToFree: 'Switch to Free Mode',
+    switchToPro: 'Switch to Pro Mode',
 
     // SettingsPanel.tsx
     editingMode: '1. Editing Mode',
@@ -92,6 +107,7 @@ export const translations = {
     filtered: 'Filtered',
     crops: 'Crops',
     report: 'Report',
+    download: 'Download',
     downloadAll: 'Download All',
     notGenerated: 'Not generated.',
     enhancedPromptUsed: 'Enhanced Prompt Used:',
@@ -167,6 +183,21 @@ export const translations = {
     addImages: 'Aggiungi Immagini',
     undo: 'Annulla',
 
+    // Auth / Modes
+    welcomeTitle: 'Benvenuto in Gemini Image Studio',
+    welcomeSubtitle: 'Scegli la modalità preferita per iniziare.',
+    proModeTitle: 'Versione Pro',
+    proModeDesc: 'Usa modelli Gemini 3.0 Pro. Richiede una chiave API Google Cloud a pagamento.',
+    freeModeTitle: 'Versione Gratuita',
+    freeModeDesc: 'Usa modelli standard Gemini 2.5 Flash. Veloce e gratuito per uso base.',
+    useProVersion: 'Seleziona Chiave API (Pro)',
+    useFreeVersion: 'Usa Versione Gratuita',
+    modePro: 'PRO',
+    modeFree: 'FREE',
+    upgradeToPro: 'Passa a Pro',
+    switchToFree: 'Passa a Modalità Gratuita',
+    switchToPro: 'Passa a Modalità Pro',
+
     // SettingsPanel.tsx
     editingMode: '1. Modalità di Modifica',
     cleanupOnly: 'Solo Pulizia',
@@ -236,6 +267,7 @@ export const translations = {
     filtered: 'Filtrata',
     crops: 'Ritagli',
     report: 'Report',
+    download: 'Scarica',
     downloadAll: 'Scarica Tutto',
     notGenerated: 'Non generato.',
     enhancedPromptUsed: 'Prompt Migliorato Utilizzato:',

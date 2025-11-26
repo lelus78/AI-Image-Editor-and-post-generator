@@ -278,13 +278,26 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ t, imageResult, origin
             {imageResult.cropProposals.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 {imageResult.cropProposals.map((crop, index) => (
-                    <div key={index} className="bg-gray-700 p-3 rounded-lg text-center relative group">
-                      <img src={crop.imageUrl} alt={`${t.crops} ${index + 1}`} className="w-full h-auto rounded-md mb-2" style={imageStyle} />
-                      <button onClick={() => downloadImage(crop.imageUrl!, `${baseFilename}-crop-${crop.aspectRatio.replace(':', 'x')}.jpg`)} aria-label="Download crop" className="absolute top-2 right-2 bg-black/50 p-2 rounded-full text-white opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity">
-                        <DownloadIcon className="w-5 h-5" />
+                    <div key={index} className="bg-gray-700 p-3 rounded-lg text-center relative group flex flex-col h-full">
+                      <div className="relative flex-grow flex items-center justify-center bg-gray-900/50 rounded-lg p-2 min-h-[200px]">
+                          <img 
+                            src={crop.imageUrl} 
+                            alt={`${t.crops} ${index + 1}`} 
+                            className="max-w-full max-h-[300px] object-contain rounded-md shadow-sm" 
+                            style={imageStyle} 
+                          />
+                      </div>
+                      <div className="my-3">
+                          <p className="font-bold text-sm">{crop.aspectRatio} - {t.score}: {crop.compositionScore}</p>
+                          <p className="text-xs text-gray-400 mt-1 line-clamp-3" title={crop.rationale}>{crop.rationale}</p>
+                      </div>
+                      <button 
+                        onClick={() => downloadImage(crop.imageUrl!, `${baseFilename}-crop-${crop.aspectRatio.replace(':', 'x')}.jpg`)} 
+                        className="w-full flex items-center justify-center gap-2 bg-gray-600 hover:bg-gray-500 text-white py-2 px-3 rounded-lg transition-colors text-sm font-medium mt-auto"
+                      >
+                        <DownloadIcon className="w-4 h-4" />
+                        {t.download}
                       </button>
-                      <p className="font-bold text-sm mt-2">{crop.aspectRatio} - {t.score}: {crop.compositionScore}</p>
-                      <p className="text-xs text-gray-400">{crop.rationale}</p>
                     </div>
                 ))}
                 </div>
