@@ -3,6 +3,8 @@ export type EditMode = 'cleanup-only' | 'remove-bg' | 'themed-bg';
 
 export type AspectRatio = '1:1' | '4:5' | '3:2' | '16:9' | '9:16';
 
+export type CraftMode = '3d-printing' | 'laser-engraving';
+
 export interface Settings {
   mode: EditMode;
   theme: string;

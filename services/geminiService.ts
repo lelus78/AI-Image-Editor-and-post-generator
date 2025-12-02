@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Modality, Type, GenerateContentResponse, Part, FinishReason } from "@google/genai";
-import type { Settings, AspectRatio, CropProposal, SocialPost, Report, MakerWorldPost } from '../types';
+import type { Settings, AspectRatio, CropProposal, SocialPost, Report, MakerWorldPost, CraftMode } from '../types';
 
 // Helper to safely get API Key without crashing if process is undefined
 const getApiKey = (): string => {
@@ -412,14 +412,25 @@ export const generateCollage = async (images: File[], theme: string, useProModel
     };
 };
 
-export const generateSocialPosts = async (image: File | string, context: string, language: 'en' | 'it'): Promise<SocialPost[]> => {
+export const generateSocialPosts = async (image: File | string, context: string, language: 'en' | 'it', craftMode: CraftMode = '3d-printing'): Promise<SocialPost[]> => {
     const ai = new GoogleGenAI({ apiKey: getApiKey() });
     const imagePart = await prepareImageInput(image);
     const languageInstruction = language === 'it' ? 'Italian' : 'English';
+    
+    let craftContext = "";
+    if (craftMode === 'laser-engraving') {
+        craftContext = `The content MUST be about Laser Engraving and Cutting. Focus on materials like wood, slate, acrylic, leather. Mention precision, burning, etching, power, speed, diode or CO2 lasers. Use relevant hashtags like #laserengraving #lasercut #xtool #glowforge #diy.`;
+    } else {
+        craftContext = `The content MUST be about 3D Printing. Focus on filaments (PLA, PETG), layer lines, slicers, extruders, nozzles. Use relevant hashtags like #3dprinting #3dprinted #bambu #prusa #maker.`;
+    }
+
     const textPart = {
         text: `Analyze the provided image and generate 2 engaging social media posts in ${languageInstruction} for different platforms (e.g., Instagram, Twitter/X).
         
-        Context for the posts: "${context || 'General post about the image.'}"
+        Craft Type: ${craftMode === 'laser-engraving' ? 'Laser Engraving' : '3D Printing'}.
+        User Context: "${context || 'General post about the image.'}"
+        
+        Strict Instructions: ${craftContext}
         
         For each post, suggest relevant hashtags. If one of the posts is for Instagram, you MUST also suggest 3 suitable songs (providing the title and artist) for a Reel or Story.
         
@@ -528,17 +539,47 @@ export const generateImageReport = async (image: File | string, settings: Settin
     };
 };
 
-export const generateMakerWorldPost = async (image: File | string, context: string, language: 'en' | 'it'): Promise<MakerWorldPost> => {
+export const generateMakerWorldPost = async (image: File | string, context: string, language: 'en' | 'it', craftMode: CraftMode = '3d-printing'): Promise<MakerWorldPost> => {
     const ai = new GoogleGenAI({ apiKey: getApiKey() });
     const imagePart = await prepareImageInput(image);
     const languageInstruction = language === 'it' ? 'Italian' : 'English';
-    const prompt = {
-        text: `You are an expert content creator for 3D printing communities like MakerWorld. Your task is to analyze the provided image and the user's context to generate a post for a 3D model.
+    
+    let examplePost = "";
+    
+    if (craftMode === 'laser-engraving') {
+        examplePost = `
+        --- START OF EXAMPLE ---
+        ### 🏷️ **Model Name**
+        **Geometric Mandala Coasters - Slate Edition**
 
-        User's Context/Model Name: "${context}"
+        ### 🧩 **Category**
+        Home Decor / Kitchen / Laser Engraving
 
-        Use the following as a perfect example of the required style, tone, and structure. Use markdown (like **bold** or *italics*) and emojis to make the description engaging.
+        ### 📝 **Description**
+        Elevate your coffee table with this intricate **Geometric Mandala Coaster Set**! ✨☕
+        Designed specifically for **laser engraving on slate**, this pattern features fine lines and sharp contrasts that pop beautifully on dark stone.
+        The file includes **4 unique mandala designs**, all optimized for diode and CO2 lasers.
+        
+        🧠 **Tips:**
+        * **Power:** 30% (for 10W diode)
+        * **Speed:** 100 mm/s
+        * **Lines per cm:** 120
+        * Clean the slate with oil after engraving for a deep black finish!
+        
+        Perfect for gifts or adding a boho touch to your home. Happy burning! 🔥
 
+        ### 🪄 **Tags**
+        laser, engraving, slate, coaster, mandala, geometric, home decor, laser cut, lightburn, diode laser, xtool, kitchen, gift, etching, stone
+
+        ### 📢 **Community Post (max 500 characters)**
+        New project up! 🔥 Check out these **Geometric Mandala Coasters** designed for slate engraving.
+        The file has 4 distinct patterns that look amazing on stone. I used a 10W diode laser (30% power, 100mm/s).
+        Pro tip: seal them with a bit of mineral oil for that deep, rich contrast! ☕✨
+        --- END OF EXAMPLE ---
+        `;
+    } else {
+        // Default 3D Printing Example
+        examplePost = `
         --- START OF EXAMPLE ---
         ### 🏷️ **Model Name**
         **Bad Dinosaurs – T-Rex Family Set**
@@ -564,6 +605,18 @@ export const generateMakerWorldPost = async (image: File | string, context: stri
         The big one is printed in 3 parts with a simple hex connector — easy to glue, perfectly aligned, and true to scale with the smaller dinos.
         Fun to print, even more fun to display! 💗✨
         --- END OF EXAMPLE ---
+        `;
+    }
+
+    const prompt = {
+        text: `You are an expert content creator for maker communities like MakerWorld. Your task is to analyze the provided image and the user's context to generate a post for a project.
+        
+        Craft Type: ${craftMode === 'laser-engraving' ? 'Laser Engraving/Cutting' : '3D Printing'}.
+        User's Context/Project Name: "${context}"
+
+        Use the following as a perfect example of the required style, tone, and structure. Use markdown (like **bold** or *italics*) and emojis to make the description engaging.
+
+        ${examplePost}
 
         Now, generate a new post for the user's image and context in ${languageInstruction}.
         You MUST return ONLY a single JSON object that adheres to the specified schema.

@@ -2,6 +2,7 @@
 import React, { useMemo } from 'react';
 import type { Settings, EditMode, AspectRatio } from '../types';
 import { SparklesIcon, ScissorsIcon, WandIcon, InvertColorsIcon } from './IconComponents';
+import { InfoTooltip } from './InfoTooltip';
 import { translations } from '../translations';
 
 interface SettingsPanelProps {
@@ -28,7 +29,12 @@ const PRESET_IMAGES: Record<string, string> = {
   cityscape: "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?auto=format&fit=crop&w=150&q=80",
   cafe: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=150&q=80",
   pastel: "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&w=150&q=80",
-  sketch: "https://images.unsplash.com/photo-1578301978693-85fa9c0320b9?auto=format&fit=crop&w=150&q=80"
+  sketch: "https://images.unsplash.com/photo-1578301978693-85fa9c0320b9?auto=format&fit=crop&w=150&q=80",
+  christmas: "https://images.unsplash.com/photo-1512389142860-9c449e58a543?auto=format&fit=crop&w=150&q=80",
+  halloween: "https://images.unsplash.com/photo-1509557965875-b88c97052f0e?auto=format&fit=crop&w=150&q=80",
+  easter: "https://images.unsplash.com/photo-1519751138087-5bf79df62d5b?auto=format&fit=crop&w=150&q=80",
+  valentine: "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?auto=format&fit=crop&w=150&q=80",
+  party: "https://images.unsplash.com/photo-1496337589254-7e19d01cec44?auto=format&fit=crop&w=150&q=80"
 };
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({ t, settings, setSettings, disabled, selectedFilter, setSelectedFilter, customFilterPrompt, setCustomFilterPrompt, onApplyFilter, isImageLoaded, onInvertFilter, hasFilteredResult }) => {
@@ -43,6 +49,22 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ t, settings, setSe
         : [...s.aspectRatios, ratio];
       return { ...s, aspectRatios: newRatios };
     });
+  };
+
+  const handlePresetClick = (presetKey: keyof typeof t.themePresets) => {
+    const prompts = t.themePresets[presetKey];
+    
+    // Check if it's an array (new structure) or string (fallback)
+    let selectedPrompt = '';
+    if (Array.isArray(prompts)) {
+      // Pick a random prompt from the array
+      const randomIndex = Math.floor(Math.random() * prompts.length);
+      selectedPrompt = prompts[randomIndex];
+    } else {
+      selectedPrompt = prompts as string;
+    }
+
+    setSettings(s => ({ ...s, theme: selectedPrompt }));
   };
 
   const filterOptions = useMemo(() => [
@@ -65,7 +87,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ t, settings, setSe
     <div className="bg-gray-800 rounded-2xl p-6 space-y-6 sticky top-24">
       <fieldset disabled={disabled && !isFilterApplyDisabled} className="space-y-6">
         <div>
-          <h3 className="text-lg font-semibold mb-3">{t.editingMode}</h3>
+          <h3 className="text-lg font-semibold mb-3 flex items-center">
+            {t.editingMode} 
+          </h3>
           <div className="grid grid-cols-3 gap-3">
             <button
               onClick={() => handleModeChange('cleanup-only')}
@@ -94,18 +118,26 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ t, settings, setSe
         {settings.mode === 'themed-bg' && (
           <div className="space-y-4">
             <div>
-                <label className="block text-sm font-medium mb-2">{t.selectPresetLabel}</label>
+                <label className="block text-sm font-medium mb-2 flex items-center">
+                    {t.selectPresetLabel}
+                    <InfoTooltip text={t.themeInfo} />
+                </label>
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                   {Object.keys(t.themePresets).map((key) => {
                      const presetKey = key as keyof typeof t.themePresets;
-                     const prompt = t.themePresets[presetKey];
                      const label = t.themePresetLabels[presetKey as keyof typeof t.themePresetLabels];
                      
+                     // Check if current theme matches one of the prompts in the array
+                     const prompts = t.themePresets[presetKey];
+                     const isSelected = Array.isArray(prompts) 
+                        ? prompts.includes(settings.theme)
+                        : settings.theme === prompts;
+
                      return (
                       <button
                         key={key}
-                        onClick={() => setSettings(s => ({ ...s, theme: prompt }))}
-                        className={`relative group aspect-square rounded-lg overflow-hidden border-2 transition-all ${settings.theme === prompt ? 'border-indigo-500 ring-2 ring-indigo-500/50' : 'border-transparent hover:border-gray-500'}`}
+                        onClick={() => handlePresetClick(presetKey)}
+                        className={`relative group aspect-square rounded-lg overflow-hidden border-2 transition-all ${isSelected ? 'border-indigo-500 ring-2 ring-indigo-500/50' : 'border-transparent hover:border-gray-500'}`}
                         title={label}
                       >
                         <img 
@@ -219,7 +251,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ t, settings, setSe
       
       {/* AI Filters Section */}
       <div className="border-t border-gray-700 pt-6 space-y-4">
-          <h3 className="text-lg font-semibold">{t.aiFilters}</h3>
+          <h3 className="text-lg font-semibold flex items-center">
+            {t.aiFilters}
+            <InfoTooltip text={t.filterInfo} />
+          </h3>
           <div>
             <label htmlFor="ai-filter" className="block text-sm font-medium mb-2">{t.filterStyle}</label>
             <select

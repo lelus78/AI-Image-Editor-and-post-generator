@@ -22,6 +22,7 @@ export const translations = {
     startOver: 'Start Over',
     addImages: 'Add Images',
     undo: 'Undo',
+    cancel: 'Cancel',
     
     // Auth / Modes
     welcomeTitle: 'Welcome to Gemini Image Studio',
@@ -48,6 +49,10 @@ export const translations = {
     selectPresetLabel: 'Choose a Theme Style',
     selectPreset: 'Select a preset theme...',
     customThemePrompt: 'Custom Theme Prompt',
+    
+    themeInfo: "Replaces the background completely with a new AI-generated setting while keeping your subject intact. This changes the content of the environment.",
+    filterInfo: "Applies an artistic style, color grade, or texture to the entire image (subject + background) without changing the geometry or content.",
+
     themePresetLabels: {
       abstract: 'Vibrant Abstract',
       studio: 'Minimalist Studio',
@@ -56,15 +61,85 @@ export const translations = {
       cafe: 'Cozy Cafe',
       pastel: 'Pastel Dream',
       sketch: 'Monochrome Sketch',
+      christmas: 'Cozy Christmas',
+      halloween: 'Spooky Halloween',
+      easter: 'Spring Easter',
+      valentine: 'Romantic Valentine',
+      party: 'Festive Party',
     },
     themePresets: {
-      abstract: 'A vibrant, abstract background with swirling colors and a sense of energy.',
-      studio: 'A clean, minimalist studio background with soft, diffused lighting and a neutral grey or white wall.',
-      forest: 'A magical, enchanted forest at dusk, with glowing mushrooms, ancient trees, and soft, ethereal light filtering through the canopy.',
-      cityscape: 'A sprawling, futuristic cityscape at night, with neon signs, flying vehicles, and towering skyscrapers.',
-      cafe: 'The warm and inviting interior of a cozy cafe, with wooden tables, soft lighting, and the hint of steam from a coffee cup.',
-      pastel: 'A soft, dreamy world with muted pastel colors, fluffy clouds, and a gentle, hazy glow.',
-      sketch: 'A high-contrast, black and white pencil sketch world, artistic and rough textures.',
+      abstract: [
+        'A vibrant, abstract background with swirling colors and a sense of energy.',
+        'A geometric abstract background with sharp shapes and neon gradients.',
+        'A fluid art background resembling mixing paint with gold veins.',
+        'A digital datamosh aesthetic with glitchy, colorful patterns.'
+      ],
+      studio: [
+        'A clean, minimalist studio background with soft, diffused lighting and a neutral grey wall.',
+        'A professional photo studio setting with a textured white backdrop and rim lighting.',
+        'A high-key studio background, completely white with soft shadows.',
+        'A moody studio setting with a dark grey concrete wall and dramatic lighting.'
+      ],
+      forest: [
+        'A magical, enchanted forest at dusk, with glowing mushrooms and ancient trees.',
+        'A sunlit birch forest in the morning with rays of light filtering through leaves.',
+        'A dense, misty pine forest with a moody, cinematic atmosphere.',
+        'A vibrant tropical jungle background with large leaves and exotic flowers.'
+      ],
+      cityscape: [
+        'A sprawling, futuristic cityscape at night, with neon signs and flying vehicles.',
+        'A modern city skyline at sunset with glass skyscrapers reflecting the orange light.',
+        'A rainy cyberpunk street scene with reflections on wet pavement.',
+        'A view from a high-rise balcony overlooking a bustling metropolis at dawn.'
+      ],
+      cafe: [
+        'The warm and inviting interior of a cozy cafe, with wooden tables and soft lighting.',
+        'A trendy coffee shop with brick walls, hanging plants, and industrial lighting.',
+        'A blurred background of a busy Parisian sidewalk cafe.',
+        'A quiet corner of a library cafe with bookshelves and a comfortable armchair.'
+      ],
+      pastel: [
+        'A soft, dreamy world with muted pastel colors, fluffy clouds, and a gentle glow.',
+        'A gradient background fading from soft pink to baby blue.',
+        'A candy-colored landscape with marshmallows and soft textures.',
+        'A watercolor texture background with splashes of mint, lavender, and peach.'
+      ],
+      sketch: [
+        'A high-contrast, black and white pencil sketch world, artistic and rough textures.',
+        'A charcoal drawing background with smudged shadows and expressive lines.',
+        'A technical blueprint style background with grid lines and measurements.',
+        'A vintage ink illustration style with hatching and cross-hatching details.'
+      ],
+      christmas: [
+        'A cozy Christmas scene with a decorated tree, twinkling fairy lights, and a fireplace.',
+        'A snowy winter landscape with a wooden cabin and falling snowflakes.',
+        'A magical North Pole workshop background with toys and warm lantern light.',
+        'A festive background with red and gold bokeh ornaments and pine branches.'
+      ],
+      halloween: [
+        'A spooky Halloween background with carved pumpkins, cobwebs, and purple lighting.',
+        'A misty graveyard scene with old tombstones and a full moon.',
+        'A haunted house silhouette against an orange and black sky.',
+        'A dark, gothic forest with twisted trees and low-lying fog.'
+      ],
+      easter: [
+        'A bright and cheerful Easter background with spring flowers and green grass.',
+        'A soft pastel background with painted easter eggs hidden in a garden.',
+        'A sunny meadow with daisies and blooming cherry blossom trees.',
+        'A whimsical background with bunnies and colorful baskets.'
+      ],
+      valentine: [
+        'A romantic background with soft pink and red tones, and heart-shaped bokeh.',
+        'A bed of red roses with soft, cinematic lighting.',
+        'A candlelight dinner setting with a blurred romantic atmosphere.',
+        'A dreamy cloudscape with pink and violet hues at sunset.'
+      ],
+      party: [
+        'A festive party background with colorful balloons, confetti, and streamers.',
+        'A disco ball atmosphere with beams of light and sparkles.',
+        'A chic rooftop party at night with string lights and cocktails.',
+        'A golden celebration background with glitter and fireworks.'
+      ],
     },
     enhancements: '2. Enhancements',
     harmonizeStyle: 'Harmonize Subject Style',
@@ -123,6 +198,11 @@ export const translations = {
     zoomIn: 'Zoom In',
     zoomOut: 'Zoom Out',
     resetZoom: 'Reset View',
+    manualCrop: 'Custom Crop',
+    createCustomCrop: 'Create Custom Crop',
+    drawCropInstruction: 'Click and drag on the image to draw a crop box.',
+    applyCrop: 'Apply Crop',
+    cancelCrop: 'Cancel Crop',
 
     // CollageCreator.tsx
     collageCreatorTitle: 'Artistic Collage Creator',
@@ -151,13 +231,18 @@ export const translations = {
     modelContext: 'Model Context',
     modelContextPlaceholder: "e.g., 'T-Rex family from Bad Dinosaurs'",
     generateMakerPost: 'Generate MakerWorld Post',
-    modelName: 'Nome Modello',
-    category: 'Categoria',
-    tags: 'Tag',
-    description: 'Descrizione',
-    copyDescription: 'Copia Descrizione',
+    modelName: 'Model Name',
+    category: 'Category',
+    tags: 'Tags',
+    description: 'Description',
+    copyDescription: 'Copy Description',
     communityPost: 'Community Post',
-    copyPost: 'Copia Post',
+    copyPost: 'Copy Post',
+
+    // Craft Mode
+    craftType: 'Craft Type',
+    printing3d: '3D Printing',
+    laserEngraving: 'Laser Engraving',
 
   },
   it: {
@@ -182,6 +267,7 @@ export const translations = {
     startOver: 'Ricomincia',
     addImages: 'Aggiungi Immagini',
     undo: 'Annulla',
+    cancel: 'Annulla',
 
     // Auth / Modes
     welcomeTitle: 'Benvenuto in Gemini Image Studio',
@@ -208,6 +294,10 @@ export const translations = {
     selectPresetLabel: 'Scegli uno Stile',
     selectPreset: 'Seleziona un tema predefinito...',
     customThemePrompt: 'Prompt Tema Personalizzato',
+    
+    themeInfo: "Sostituisce completamente lo sfondo con una nuova ambientazione generata dall'IA, mantenendo intatto il soggetto. Cambia il contenuto dell'ambiente.",
+    filterInfo: "Applica uno stile artistico, una correzione del colore o una texture all'intera immagine (soggetto + sfondo) senza modificarne la geometria o il contenuto.",
+
     themePresetLabels: {
       abstract: 'Astratto Vibrante',
       studio: 'Studio Minimalista',
@@ -216,15 +306,85 @@ export const translations = {
       cafe: 'Caffè Accogliente',
       pastel: 'Sogno Pastello',
       sketch: 'Schizzo Monocromatico',
+      christmas: 'Natale Accogliente',
+      halloween: 'Halloween Spaventoso',
+      easter: 'Pasqua Primaverile',
+      valentine: 'San Valentino Romantico',
+      party: 'Festa Celebrativa',
     },
     themePresets: {
-      abstract: 'Uno sfondo astratto e vibrante con colori vorticosi e un senso di energia.',
-      studio: 'Uno sfondo pulito e minimalista da studio con illuminazione soffusa e diffusa e una parete neutra grigia o bianca.',
-      forest: 'Una foresta magica e incantata al crepuscolo, con funghi luminosi, alberi secolari e una luce eterea e soffusa che filtra attraverso la chioma.',
-      cityscape: 'Un vasto paesaggio urbano futuristico di notte, con insegne al neon, veicoli volanti e grattacieli imponenti.',
-      cafe: "L'interno caldo e invitante di un caffè accogliente, con tavoli in legno, luci soffuse e un accenno di vapore da una tazza di caffè.",
-      pastel: 'Un mondo morbido e sognante con colori pastello tenui e un bagliore gentile e sfocato.',
-      sketch: 'Un mondo schizzato a matita ad alto contrasto in bianco e nero, con texture artistiche e ruvide.',
+      abstract: [
+        'Uno sfondo astratto e vibrante con colori vorticosi e un senso di energia.',
+        'Uno sfondo astratto geometrico con forme nette e gradienti al neon.',
+        'Un\'arte fluida che ricorda vernice mescolata con venature d\'oro.',
+        'Un\'estetica digital datamosh con pattern glitchati e colorati.'
+      ],
+      studio: [
+        'Uno sfondo pulito e minimalista da studio con illuminazione soffusa e parete neutra.',
+        'Un set fotografico professionale con fondale bianco testurizzato e luce di taglio.',
+        'Uno sfondo da studio high-key, completamente bianco con ombre morbide.',
+        'Un ambiente da studio moody con parete in cemento scuro e illuminazione drammatica.'
+      ],
+      forest: [
+        'Una foresta magica e incantata al crepuscolo, con funghi luminosi e alberi secolari.',
+        'Una foresta di betulle illuminata dal sole mattutino che filtra tra le foglie.',
+        'Una densa foresta di pini con nebbia e atmosfera cinematografica.',
+        'Una giungla tropicale vibrante con grandi foglie e fiori esotici.'
+      ],
+      cityscape: [
+        'Un vasto paesaggio urbano futuristico di notte, con insegne al neon e veicoli volanti.',
+        'Uno skyline moderno al tramonto con grattacieli di vetro che riflettono la luce arancione.',
+        'Una scena di strada cyberpunk piovosa con riflessi sull\'asfalto bagnato.',
+        'Una vista da un balcone alto su una metropoli frenetica all\'alba.'
+      ],
+      cafe: [
+        'L\'interno caldo e invitante di un caffè accogliente, con tavoli in legno e luci soffuse.',
+        'Una caffetteria alla moda con pareti di mattoni, piante sospese e luci industriali.',
+        'Uno sfondo sfocato di un caffè parigino sul marciapiede.',
+        'Un angolo tranquillo di un caffè libreria con poltrone comode.'
+      ],
+      pastel: [
+        'Un mondo morbido e sognante con colori pastello tenui e un bagliore gentile.',
+        'Uno sfondo sfumato che va dal rosa tenue al celeste.',
+        'Un paesaggio color caramella con texture morbide.',
+        'Una texture acquerellata con spruzzi di menta, lavanda e pesca.'
+      ],
+      sketch: [
+        'Un mondo schizzato a matita ad alto contrasto in bianco e nero.',
+        'Uno sfondo a carboncino con ombre sfumate e linee espressive.',
+        'Uno stile blueprint tecnico con griglie e misurazioni.',
+        'Uno stile illustrazione vintage a inchiostro con tratteggi dettagliati.'
+      ],
+      christmas: [
+        'Una scena natalizia accogliente con un albero decorato, luci scintillanti e camino acceso.',
+        'Un paesaggio invernale innevato con una baita di legno e fiocchi di neve.',
+        'Il laboratorio magico del Polo Nord con giocattoli e luce calda delle lanterne.',
+        'Uno sfondo festivo con bokeh rosso e oro e rami di pino.'
+      ],
+      halloween: [
+        'Uno sfondo di Halloween spaventoso con zucche intagliate e luce viola.',
+        'Una scena nebbiosa in un cimitero con vecchie lapidi e luna piena.',
+        'La silhouette di una casa stregata contro un cielo arancione e nero.',
+        'Una foresta gotica oscura con alberi contorti e nebbia bassa.'
+      ],
+      easter: [
+        'Uno sfondo pasquale luminoso con fiori primaverili ed erba verde.',
+        'Uno sfondo pastello morbido con uova di pasqua nascoste in giardino.',
+        'Un prato soleggiato con margherite e ciliegi in fiore.',
+        'Uno sfondo stravagante con coniglietti e cesti colorati.'
+      ],
+      valentine: [
+        'Uno sfondo romantico con toni rosa e rossi e bokeh a cuore.',
+        'Un letto di rose rosse con illuminazione cinematografica soffusa.',
+        'Una cena a lume di candela con atmosfera romantica sfocata.',
+        'Un paesaggio di nuvole sognante con sfumature rosa e viola al tramonto.'
+      ],
+      party: [
+        'Uno sfondo festoso per feste con palloncini colorati e coriandoli.',
+        'Un\'atmosfera da discoteca con raggi di luce e scintillii.',
+        'Una festa chic su una terrazza di notte con luci a filo.',
+        'Una celebrazione dorata con glitter e fuochi d\'artificio.'
+      ],
     },
     enhancements: '2. Miglioramenti',
     harmonizeStyle: 'Armonizza Stile Soggetto',
@@ -283,6 +443,11 @@ export const translations = {
     zoomIn: 'Zoom Avanti',
     zoomOut: 'Zoom Indietro',
     resetZoom: 'Reimposta',
+    manualCrop: 'Ritaglio Manuale',
+    createCustomCrop: 'Crea Ritaglio Personalizzato',
+    drawCropInstruction: 'Clicca e trascina sull\'immagine per disegnare l\'area di ritaglio.',
+    applyCrop: 'Applica Ritaglio',
+    cancelCrop: 'Annulla Ritaglio',
 
     // CollageCreator.tsx
     collageCreatorTitle: 'Creatore di Collage Artistici',
@@ -318,5 +483,10 @@ export const translations = {
     copyDescription: 'Copia Descrizione',
     communityPost: 'Post Community',
     copyPost: 'Copia Post',
+
+    // Craft Mode
+    craftType: 'Tipo di Lavoro',
+    printing3d: 'Stampa 3D',
+    laserEngraving: 'Incisione Laser',
   },
 };

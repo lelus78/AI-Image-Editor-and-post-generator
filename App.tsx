@@ -9,8 +9,8 @@ import { SocialPostGenerator } from './components/SocialPostGenerator';
 import { MakerWorldPostGenerator } from './components/MakerWorldPostGenerator';
 import { Loader } from './components/Loader';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
-import { UploadIcon, TrashIcon, PlusIcon, UndoIcon } from './components/IconComponents';
-import type { Settings, ImageResult, SocialPost, MakerWorldPost } from './types';
+import { UploadIcon, TrashIcon, PlusIcon, UndoIcon, XCircleIcon } from './components/IconComponents';
+import type { Settings, ImageResult, SocialPost, MakerWorldPost, CraftMode } from './types';
 import { runImageEditing, runAutoCrop, applyAIFilter, generateCollage, generateSocialPosts, generateImageReport, generateMakerWorldPost } from './services/geminiService';
 import { usePersistentState } from './hooks/usePersistentState';
 import { translations } from './translations';
@@ -38,7 +38,8 @@ interface HistoryState {
 }
 
 const App: React.FC = () => {
-    const [hasApiKey, setHasApiKey] = useState(false);
+    // Start with hasApiKey=true to bypass the welcome screen (start in Free mode by default)
+    const [hasApiKey, setHasApiKey] = useState(true);
     const [isProMode, setIsProMode] = useState(false);
     const [images, setImages] = useState<File[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -60,6 +61,9 @@ const App: React.FC = () => {
     // History Stack
     const [history, setHistory] = useState<HistoryState[]>([]);
     
+    // Cancellation state
+    const abortControllerRef = useRef<boolean>(false);
+    
     // Track previous result to auto-switch tabs when new results arrive
     const prevImageResultRef = useRef<ImageResult | null>(null);
 
@@ -68,6 +72,9 @@ const App: React.FC = () => {
     const [socialPostLanguage, setSocialPostLanguage] = usePersistentState<'en' | 'it'>('socialPostLanguage', 'en');
     const [makerWorldPostLanguage, setMakerWorldPostLanguage] = usePersistentState<'en' | 'it'>('makerWorldPostLanguage', 'en');
     
+    // Craft Mode State
+    const [craftMode, setCraftMode] = useState<CraftMode>('3d-printing');
+
     // Translations object
     const t = translations[uiLanguage];
 
@@ -86,17 +93,19 @@ const App: React.FC = () => {
     const [makerWorldPost, setMakerWorldPost] = useState<MakerWorldPost | null>(null);
     const [isGeneratingMakerWorldPost, setIsGeneratingMakerWorldPost] = useState(false);
 
-    useEffect(() => {
-        const aistudio = (window as any).aistudio;
-        if (aistudio) {
-            aistudio.hasSelectedApiKey().then((hasKey: boolean) => {
-                if (hasKey) {
-                    setHasApiKey(true);
-                    setIsProMode(true);
-                }
-            });
-        }
-    }, []);
+    // Handle cancellation
+    const handleCancelProcessing = () => {
+        abortControllerRef.current = true;
+        setIsProcessing(false);
+        setIsCreatingCollage(false);
+        setIsGeneratingPosts(false);
+        setIsGeneratingMakerWorldPost(false);
+        setProcessingMessage('');
+        setError(null);
+    };
+
+    // No auto-login to Pro mode. User starts free, switches manually.
+    // However, if we need to check if a key *exists* for dev purposes, we could, but here we enforce default Free.
 
     const handleSelectKey = async () => {
         const aistudio = (window as any).aistudio;
@@ -121,7 +130,11 @@ const App: React.FC = () => {
     };
 
     const handleToggleProMode = () => {
-        setIsProMode(!isProMode);
+        if (!isProMode) {
+            handleSelectKey();
+        } else {
+            setIsProMode(false);
+        }
     };
 
     const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -255,6 +268,7 @@ const App: React.FC = () => {
         };
 
         try {
+            if (abortControllerRef.current) return;
             setStepMessage(t.stepEditing);
             
             // Save history only if we are doing single image editing (chaining)
@@ -270,6 +284,7 @@ const App: React.FC = () => {
             const useProModelForEditing = isProMode && settings.mode === 'themed-bg';
 
             const editedImageUrl = await runImageEditing(inputImage, settings, useProModelForEditing);
+            if (abortControllerRef.current) return;
 
             const resultUpdate: Partial<ImageResult> = {};
             if (settings.mode === 'cleanup-only') resultUpdate.cleaned = editedImageUrl;
@@ -280,16 +295,21 @@ const App: React.FC = () => {
             }
             updateImageResult(image, resultUpdate);
 
+            if (abortControllerRef.current) return;
             setStepMessage(t.stepAnalyzing);
             const report = await generateImageReport(inputImage, settings);
+            if (abortControllerRef.current) return;
             updateImageResult(image, { report });
 
             if (settings.autoCrop) {
+                if (abortControllerRef.current) return;
                 setStepMessage(t.stepCropping);
                 const cropProposals = await runAutoCrop(editedImageUrl, settings.aspectRatios);
+                if (abortControllerRef.current) return;
                 updateImageResult(image, { cropProposals });
             }
         } catch (e: any) {
+            if (abortControllerRef.current) return;
             handleApiError(e);
             throw e;
         }
@@ -298,6 +318,7 @@ const App: React.FC = () => {
     const handleProcessCurrentImage = async () => {
         if (!currentImage) return;
 
+        abortControllerRef.current = false;
         setIsProcessing(true);
         setProcessingMessage(t.processingSingle);
         setError(null);
@@ -305,17 +326,21 @@ const App: React.FC = () => {
         // Pass true for useChaining to use the currently visible image as input
         await processSingleImage(currentImage, 0, 1, true).catch(() => {});
 
-        setIsProcessing(false);
-        setProcessingMessage('');
+        if (!abortControllerRef.current) {
+            setIsProcessing(false);
+            setProcessingMessage('');
+        }
     };
 
     const handleProcessImages = async () => {
         if (images.length === 0) return;
     
+        abortControllerRef.current = false;
         setIsProcessing(true);
         setError(null);
     
         for (const [index, image] of images.entries()) {
+            if (abortControllerRef.current) break;
             setCurrentIndex(index); 
             try {
                 // Batch processing uses original images (false for chaining)
@@ -328,7 +353,9 @@ const App: React.FC = () => {
     
         setIsProcessing(false);
         setProcessingMessage('');
-        setCurrentIndex(0); 
+        if (!abortControllerRef.current) {
+            setCurrentIndex(0); 
+        }
     };
     
     const onApplyFilter = async () => {
@@ -340,6 +367,7 @@ const App: React.FC = () => {
 
         if (!filterPrompt.trim()) return;
         
+        abortControllerRef.current = false;
         setIsProcessing(true);
         setProcessingMessage(t.processingStep(1, 1, t.stepFiltering));
         setError(null);
@@ -353,6 +381,8 @@ const App: React.FC = () => {
             // Smart Routing: AI Filters use Free model (Flash) as requested for "altri compiti"
             const { imageUrl, enhancedPrompt } = await applyAIFilter(inputImage, filterPrompt, false);
             
+            if (abortControllerRef.current) return;
+
             setImageResults(prev => ({
                 ...prev,
                 [currentImage.name]: {
@@ -364,16 +394,19 @@ const App: React.FC = () => {
             }));
 
         } catch(e: any) {
-            handleApiError(e);
+             if (!abortControllerRef.current) handleApiError(e);
         } finally {
-            setIsProcessing(false);
-            setProcessingMessage('');
+            if (!abortControllerRef.current) {
+                setIsProcessing(false);
+                setProcessingMessage('');
+            }
         }
     };
     
     const handleInvertFilterResult = async () => {
         if (!currentImage || !currentImageResult?.filtered) return;
 
+        abortControllerRef.current = false;
         setIsProcessing(true);
         setProcessingMessage('Inverting colors...'); 
         
@@ -387,6 +420,8 @@ const App: React.FC = () => {
                 img.onload = resolve;
                 img.onerror = reject;
             });
+
+            if (abortControllerRef.current) return;
 
             const canvas = document.createElement('canvas');
             canvas.width = img.width;
@@ -425,11 +460,35 @@ const App: React.FC = () => {
             setProcessingMessage('');
         }
     };
+    
+    const handleAddManualCrop = (croppedUrl: string) => {
+        if (!currentImage) return;
+
+        setImageResults(prev => {
+            const currentResult = prev[currentImage.name];
+            return {
+                ...prev,
+                [currentImage.name]: {
+                    ...currentResult,
+                    cropProposals: [
+                        {
+                            imageUrl: croppedUrl,
+                            aspectRatio: '1:1', // Using 1:1 as a placeholder type for the type system, but logic treats it as custom
+                            compositionScore: 100,
+                            rationale: 'Custom crop created by user.'
+                        },
+                        ...(currentResult?.cropProposals || [])
+                    ]
+                }
+            };
+        });
+    };
 
     const handleGenerateCollage = async () => {
         const selectedImages = selectedCollageIndices.map(i => images[i]);
         if (selectedImages.length < 2) return;
 
+        abortControllerRef.current = false;
         setIsCreatingCollage(true);
         setError(null);
         setCollageResultUrl(null);
@@ -437,47 +496,51 @@ const App: React.FC = () => {
         try {
             // Collage always uses Pro model if isProMode is active
             const { imageUrl, enhancedTheme } = await generateCollage(selectedImages, collageTheme, isProMode);
+            if (abortControllerRef.current) return;
             setCollageResultUrl(imageUrl);
             setCollageEnhancedTheme(enhancedTheme);
         } catch (e: any) {
-            handleApiError(e);
+            if (!abortControllerRef.current) handleApiError(e);
         } finally {
-            setIsCreatingCollage(false);
+            if (!abortControllerRef.current) setIsCreatingCollage(false);
         }
     };
 
     const handleGeneratePosts = async (context: string, language: 'en' | 'it') => {
         if (!currentImage) return;
 
+        abortControllerRef.current = false;
         setIsGeneratingPosts(true);
         setError(null);
         setSocialPosts([]);
         try {
             const inputImage = getActiveImageSource();
-            const posts = await generateSocialPosts(inputImage, context, language);
+            const posts = await generateSocialPosts(inputImage, context, language, craftMode);
+            if (abortControllerRef.current) return;
             setSocialPosts(posts);
-        } catch (e: any)
-{
-            handleApiError(e);
+        } catch (e: any) {
+            if (!abortControllerRef.current) handleApiError(e);
         } finally {
-            setIsGeneratingPosts(false);
+            if (!abortControllerRef.current) setIsGeneratingPosts(false);
         }
     };
 
      const handleGenerateMakerWorldPost = async (context: string, language: 'en' | 'it') => {
         if (!currentImage) return;
 
+        abortControllerRef.current = false;
         setIsGeneratingMakerWorldPost(true);
         setError(null);
         setMakerWorldPost(null);
         try {
             const inputImage = getActiveImageSource();
-            const post = await generateMakerWorldPost(inputImage, context, language);
+            const post = await generateMakerWorldPost(inputImage, context, language, craftMode);
+            if (abortControllerRef.current) return;
             setMakerWorldPost(post);
         } catch (e: any) {
-            handleApiError(e);
+            if (!abortControllerRef.current) handleApiError(e);
         } finally {
-            setIsGeneratingMakerWorldPost(false);
+            if (!abortControllerRef.current) setIsGeneratingMakerWorldPost(false);
         }
     };
 
@@ -511,9 +574,12 @@ const App: React.FC = () => {
         setMakerWorldPost(null);
         setIsGeneratingMakerWorldPost(false);
         setActiveTab('original');
+        setCraftMode('3d-printing');
     };
 
     if (!hasApiKey) {
+        // This block is effectively unused on first load now because hasApiKey defaults to true,
+        // but it remains as a fallback if the API key check explicitly fails and sets hasApiKey(false) later.
         return (
             <div className="bg-gray-900 text-white min-h-screen font-sans flex flex-col items-center justify-center p-4">
                  <div className="text-center space-y-8 max-w-2xl bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-700">
@@ -587,9 +653,16 @@ const App: React.FC = () => {
                             />
                         </div>
                         {isAnythingProcessing ? (
-                            <div className="flex items-center justify-center gap-2 bg-gray-700 text-white font-bold py-2 px-6 rounded-lg min-w-[160px]">
+                            <div className="flex items-center justify-center gap-2 bg-gray-700 text-white font-bold py-2 px-4 rounded-lg min-w-[160px]">
                                 <Loader />
                                 <span>{processingMessage || t.processingGeneric}</span>
+                                <button 
+                                    onClick={handleCancelProcessing}
+                                    className="ml-2 text-red-400 hover:text-red-300 transition-colors"
+                                    title={t.cancel}
+                                >
+                                    <XCircleIcon className="w-5 h-5" />
+                                </button>
                             </div>
                         ) : (
                             <div className="flex items-center gap-2">
@@ -699,6 +772,7 @@ const App: React.FC = () => {
                                     isProcessing={isProcessing}
                                     activeTab={activeTab}
                                     setActiveTab={setActiveTab}
+                                    onAddManualCrop={handleAddManualCrop}
                                 />
                             </div>
                         </div>
@@ -722,6 +796,8 @@ const App: React.FC = () => {
                           isImageLoaded={!!currentImage}
                           language={socialPostLanguage}
                           setLanguage={setSocialPostLanguage}
+                          craftMode={craftMode}
+                          setCraftMode={setCraftMode}
                         />
 
                         <MakerWorldPostGenerator
@@ -732,6 +808,8 @@ const App: React.FC = () => {
                           isImageLoaded={!!currentImage}
                           language={makerWorldPostLanguage}
                           setLanguage={setMakerWorldPostLanguage}
+                          craftMode={craftMode}
+                          setCraftMode={setCraftMode}
                         />
                     </>
                 )}

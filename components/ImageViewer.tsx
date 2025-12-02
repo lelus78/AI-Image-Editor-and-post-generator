@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import type { ImageResult } from '../types';
-import { DownloadIcon, RefreshIcon, ZoomInIcon, ZoomOutIcon, ExpandIcon } from './IconComponents';
+import { DownloadIcon, RefreshIcon, ZoomInIcon, ZoomOutIcon, ExpandIcon, ScissorsIcon } from './IconComponents';
 import { translations } from '../translations';
+import { ManualCropper } from './ManualCropper';
 
 export type ViewTab = 'original' | 'cleaned' | 'removedBg' | 'themedBg' | 'crops' | 'filtered' | 'report';
 
@@ -14,6 +15,7 @@ interface ImageViewerProps {
   t: typeof translations.en;
   activeTab: ViewTab;
   setActiveTab: (tab: ViewTab) => void;
+  onAddManualCrop: (croppedUrl: string) => void;
 }
 
 const downloadImage = (url: string, filename: string) => {
@@ -158,12 +160,14 @@ const ZoomableImage: React.FC<ZoomableImageProps> = ({ src, alt, style, classNam
   );
 };
 
-export const ImageViewer: React.FC<ImageViewerProps> = ({ t, imageResult, originalImage, onRegenerateTheme, isProcessing, activeTab, setActiveTab }) => {
+export const ImageViewer: React.FC<ImageViewerProps> = ({ t, imageResult, originalImage, onRegenerateTheme, isProcessing, activeTab, setActiveTab, onAddManualCrop }) => {
   const [isInverted, setIsInverted] = useState(false);
+  const [isManuallyCropping, setIsManuallyCropping] = useState(false);
 
   // Reset inversion when tab changes or image changes
   useEffect(() => {
     setIsInverted(false);
+    setIsManuallyCropping(false);
   }, [activeTab, imageResult]);
 
   const originalUrl = originalImage ? URL.createObjectURL(originalImage) : "https://picsum.photos/1024/768";
@@ -222,7 +226,23 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ t, imageResult, origin
     }
   };
 
+  const handleManualCropConfirm = (croppedUrl: string) => {
+      onAddManualCrop(croppedUrl);
+      setIsManuallyCropping(false);
+  };
+
   const renderContent = () => {
+    if (isManuallyCropping && originalUrl) {
+        return (
+            <ManualCropper 
+                imageUrl={imageResult?.original || originalUrl} 
+                onConfirm={handleManualCropConfirm} 
+                onCancel={() => setIsManuallyCropping(false)}
+                t={t}
+            />
+        );
+    }
+
     const imageToDisplay = imageResult?.original || originalUrl;
     const imageStyle = isInverted ? { filter: 'invert(1)' } : undefined;
 
@@ -273,8 +293,18 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ t, imageResult, origin
           ) : <p>{t.notGenerated}</p>;
       case 'crops':
          return (
-          <div className="space-y-4 w-full">
-            <h3 className="text-xl font-semibold">{t.cropSuggestions}</h3>
+          <div className="space-y-4 w-full h-full flex flex-col">
+            <div className="flex justify-between items-center">
+                 <h3 className="text-xl font-semibold">{t.cropSuggestions}</h3>
+                 <button 
+                    onClick={() => setIsManuallyCropping(true)}
+                    className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm"
+                 >
+                     <ScissorsIcon className="w-4 h-4" />
+                     {t.createCustomCrop}
+                 </button>
+            </div>
+            
             {imageResult.cropProposals.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 {imageResult.cropProposals.map((crop, index) => (
@@ -288,7 +318,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ t, imageResult, origin
                           />
                       </div>
                       <div className="my-3">
-                          <p className="font-bold text-sm">{crop.aspectRatio} - {t.score}: {crop.compositionScore}</p>
+                          <p className="font-bold text-sm">{crop.aspectRatio} {crop.compositionScore ? `- ${t.score}: ${crop.compositionScore}` : ''}</p>
                           <p className="text-xs text-gray-400 mt-1 line-clamp-3" title={crop.rationale}>{crop.rationale}</p>
                       </div>
                       <button 
@@ -301,7 +331,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ t, imageResult, origin
                     </div>
                 ))}
                 </div>
-            ) : <p className="text-gray-400">{t.noCropProposals}</p>}
+            ) : <p className="text-gray-400 text-center py-10">{t.noCropProposals}</p>}
           </div>
         );
       case 'report':
@@ -345,50 +375,53 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ t, imageResult, origin
   }
   const currentDownload = getCurrentDownload();
 
-  const showInvertToggle = activeTab !== 'report';
+  const showInvertToggle = activeTab !== 'report' && !isManuallyCropping;
+  const showTabs = !isManuallyCropping;
 
   return (
     <div className="bg-gray-800 rounded-2xl p-4 sm:p-6">
       <style>{`.bg-grid-pattern { background-image: linear-gradient(45deg, #4b5563 25%, transparent 25%), linear-gradient(-45deg, #4b5563 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #4b5563 75%), linear-gradient(-45deg, transparent 75%, #4b5563 75%); background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0px; }`}</style>
       
-      <div className="mb-4 flex flex-wrap gap-2 border-b border-gray-700 pb-3 justify-between items-center">
-          <div className="flex flex-wrap gap-2">
-            <button onClick={() => setActiveTab('original')} disabled={isProcessing} className={`px-4 py-2 text-sm rounded-md ${activeTab === 'original' ? 'bg-indigo-600' : 'bg-gray-700 hover:bg-gray-600'} disabled:opacity-50`}>{t.original}</button>
-            {imageResult?.cleaned && <button onClick={() => setActiveTab('cleaned')} disabled={isProcessing} className={`px-4 py-2 text-sm rounded-md ${activeTab === 'cleaned' ? 'bg-indigo-600' : 'bg-gray-700 hover:bg-gray-600'} disabled:opacity-50`}>{t.cleaned}</button>}
-            {imageResult?.removedBg && <button onClick={() => setActiveTab('removedBg')} disabled={isProcessing} className={`px-4 py-2 text-sm rounded-md ${activeTab === 'removedBg' ? 'bg-indigo-600' : 'bg-gray-700 hover:bg-gamma-600'} disabled:opacity-50`}>{t.removedBg}</button>}
-            {imageResult?.themedBg && <button onClick={() => setActiveTab('themedBg')} disabled={isProcessing} className={`px-4 py-2 text-sm rounded-md ${activeTab === 'themedBg' ? 'bg-indigo-600' : 'bg-gray-700 hover:bg-gray-600'} disabled:opacity-50`}>{t.themedBg}</button>}
-            {imageResult?.filtered && <button onClick={() => setActiveTab('filtered')} disabled={isProcessing} className={`px-4 py-2 text-sm rounded-md ${activeTab === 'filtered' ? 'bg-indigo-600' : 'bg-gray-700 hover:bg-gray-600'} disabled:opacity-50`}>{t.filtered}</button>}
-            {imageResult?.cropProposals.length > 0 && <button onClick={() => setActiveTab('crops')} disabled={isProcessing} className={`px-4 py-2 text-sm rounded-md ${activeTab === 'crops' ? 'bg-indigo-600' : 'bg-gray-700 hover:bg-gray-600'} disabled:opacity-50`}>{t.crops}</button>}
-            {imageResult?.report && <button onClick={() => setActiveTab('report')} disabled={isProcessing} className={`px-4 py-2 text-sm rounded-md ${activeTab === 'report' ? 'bg-indigo-600' : 'bg-gray-700 hover:bg-gray-600'} disabled:opacity-50`}>{t.report}</button>}
-          </div>
-          
-          <div className="flex items-center gap-2">
-            {showInvertToggle && (
-                <button 
-                    onClick={() => setIsInverted(!isInverted)} 
-                    disabled={isProcessing}
-                    className={`flex items-center gap-2 px-3 py-2 text-sm font-bold rounded-lg transition-colors border disabled:opacity-50 ${isInverted ? 'bg-white text-gray-900 border-white' : 'bg-gray-800 text-gray-300 border-gray-600 hover:bg-gray-700'}`}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.91 11.672a.375.375 0 010 .656l-5.603 3.113a.375.375 0 01-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112z" fill="currentColor" className={isInverted ? 'hidden' : 'block'}/>
-                         <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" fill="currentColor" className={isInverted ? 'block' : 'hidden'}/>
-                    </svg>
-                    {t.invertColors}
-                </button>
-            )}
-            {imageResult && (
-                <button onClick={handleDownloadAll} disabled={isProcessing} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm disabled:opacity-50">
-                    <DownloadIcon className="w-4 h-4" />
-                    <span>{t.downloadAll}</span>
-                </button>
-            )}
-          </div>
-      </div>
+      {showTabs && (
+        <div className="mb-4 flex flex-wrap gap-2 border-b border-gray-700 pb-3 justify-between items-center">
+            <div className="flex flex-wrap gap-2">
+                <button onClick={() => setActiveTab('original')} disabled={isProcessing} className={`px-4 py-2 text-sm rounded-md ${activeTab === 'original' ? 'bg-indigo-600' : 'bg-gray-700 hover:bg-gray-600'} disabled:opacity-50`}>{t.original}</button>
+                {imageResult?.cleaned && <button onClick={() => setActiveTab('cleaned')} disabled={isProcessing} className={`px-4 py-2 text-sm rounded-md ${activeTab === 'cleaned' ? 'bg-indigo-600' : 'bg-gray-700 hover:bg-gray-600'} disabled:opacity-50`}>{t.cleaned}</button>}
+                {imageResult?.removedBg && <button onClick={() => setActiveTab('removedBg')} disabled={isProcessing} className={`px-4 py-2 text-sm rounded-md ${activeTab === 'removedBg' ? 'bg-indigo-600' : 'bg-gray-700 hover:bg-gamma-600'} disabled:opacity-50`}>{t.removedBg}</button>}
+                {imageResult?.themedBg && <button onClick={() => setActiveTab('themedBg')} disabled={isProcessing} className={`px-4 py-2 text-sm rounded-md ${activeTab === 'themedBg' ? 'bg-indigo-600' : 'bg-gray-700 hover:bg-gray-600'} disabled:opacity-50`}>{t.themedBg}</button>}
+                {imageResult?.filtered && <button onClick={() => setActiveTab('filtered')} disabled={isProcessing} className={`px-4 py-2 text-sm rounded-md ${activeTab === 'filtered' ? 'bg-indigo-600' : 'bg-gray-700 hover:bg-gray-600'} disabled:opacity-50`}>{t.filtered}</button>}
+                <button onClick={() => setActiveTab('crops')} disabled={isProcessing} className={`px-4 py-2 text-sm rounded-md ${activeTab === 'crops' ? 'bg-indigo-600' : 'bg-gray-700 hover:bg-gray-600'} disabled:opacity-50`}>{t.crops}</button>
+                {imageResult?.report && <button onClick={() => setActiveTab('report')} disabled={isProcessing} className={`px-4 py-2 text-sm rounded-md ${activeTab === 'report' ? 'bg-indigo-600' : 'bg-gray-700 hover:bg-gray-600'} disabled:opacity-50`}>{t.report}</button>}
+            </div>
+            
+            <div className="flex items-center gap-2">
+                {showInvertToggle && (
+                    <button 
+                        onClick={() => setIsInverted(!isInverted)} 
+                        disabled={isProcessing}
+                        className={`flex items-center gap-2 px-3 py-2 text-sm font-bold rounded-lg transition-colors border disabled:opacity-50 ${isInverted ? 'bg-white text-gray-900 border-white' : 'bg-gray-800 text-gray-300 border-gray-600 hover:bg-gray-700'}`}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.91 11.672a.375.375 0 010 .656l-5.603 3.113a.375.375 0 01-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112z" fill="currentColor" className={isInverted ? 'hidden' : 'block'}/>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" fill="currentColor" className={isInverted ? 'block' : 'hidden'}/>
+                        </svg>
+                        {t.invertColors}
+                    </button>
+                )}
+                {imageResult && (
+                    <button onClick={handleDownloadAll} disabled={isProcessing} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm disabled:opacity-50">
+                        <DownloadIcon className="w-4 h-4" />
+                        <span>{t.downloadAll}</span>
+                    </button>
+                )}
+            </div>
+        </div>
+      )}
 
       <div className="flex justify-center items-center min-h-[300px] relative">
         {renderContent()}
-        {currentDownload && (
+        {(!isManuallyCropping && currentDownload) && (
             <button onClick={() => processAndDownload(currentDownload.url, currentDownload.filename)} aria-label="Download current view" className="absolute top-2 right-2 bg-gray-900/60 hover:bg-gray-900/80 p-2 rounded-full text-white transition-colors z-20">
                 <DownloadIcon className="w-6 h-6" />
             </button>

@@ -1,7 +1,8 @@
+
 import React from 'react';
 import { Loader } from './Loader';
 import { SparklesIcon, MusicNoteIcon } from './IconComponents';
-import type { SocialPost } from '../types';
+import type { SocialPost, CraftMode } from '../types';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { translations } from '../translations';
 
@@ -13,9 +14,11 @@ interface SocialPostGeneratorProps {
   language: 'en' | 'it';
   setLanguage: (lang: 'en' | 'it') => void;
   t: typeof translations.en;
+  craftMode: CraftMode;
+  setCraftMode: (mode: CraftMode) => void;
 }
 
-export const SocialPostGenerator: React.FC<SocialPostGeneratorProps> = ({ t, onGenerate, posts, isProcessing, isImageLoaded, language, setLanguage }) => {
+export const SocialPostGenerator: React.FC<SocialPostGeneratorProps> = ({ t, onGenerate, posts, isProcessing, isImageLoaded, language, setLanguage, craftMode, setCraftMode }) => {
   const [context, setContext] = React.useState('');
 
   const handleGenerateClick = () => {
@@ -48,7 +51,34 @@ export const SocialPostGenerator: React.FC<SocialPostGeneratorProps> = ({ t, onG
                   disabled={isProcessing || !isImageLoaded}
                 />
             </div>
-            <LanguageSwitcher t={t} language={language} setLanguage={setLanguage} disabled={isProcessing || !isImageLoaded}/>
+            <div className="flex gap-4">
+                <div className="flex-1">
+                    <LanguageSwitcher t={t} language={language} setLanguage={setLanguage} disabled={isProcessing || !isImageLoaded}/>
+                </div>
+                <div className="flex-1">
+                    <label className="block text-sm font-medium mb-2">{t.craftType}</label>
+                    <div className="flex rounded-lg bg-gray-900 p-1">
+                        <button
+                            onClick={() => setCraftMode('3d-printing')}
+                            disabled={isProcessing || !isImageLoaded}
+                            className={`w-full px-2 py-1.5 text-xs sm:text-sm font-semibold rounded-md transition-colors disabled:opacity-50 ${
+                            craftMode === '3d-printing' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-700'
+                            }`}
+                        >
+                            {t.printing3d}
+                        </button>
+                        <button
+                            onClick={() => setCraftMode('laser-engraving')}
+                            disabled={isProcessing || !isImageLoaded}
+                            className={`w-full px-2 py-1.5 text-xs sm:text-sm font-semibold rounded-md transition-colors disabled:opacity-50 ${
+                            craftMode === 'laser-engraving' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-700'
+                            }`}
+                        >
+                            {t.laserEngraving}
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
         <button 
             onClick={handleGenerateClick}
