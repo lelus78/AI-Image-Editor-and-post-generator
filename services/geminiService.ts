@@ -127,7 +127,8 @@ const buildImageEditingPrompt = (settings: Settings): string => {
             }
             break;
         case 'themed-bg':
-            task = `Replace the background of the image with a new one based on this theme: "${settings.theme}".`;
+            // Refined prompt to emphasize preservation of the subject to avoid 'IMAGE_OTHER' refusals
+            task = `Background replacement task. Keep the foreground subject strictly unchanged. Replace the background pixels with this theme: "${settings.theme}".`;
             if (settings.backgroundBlur) {
                 task += ` The new background should be blurred (shallow depth of field) to focus attention on the subject.`;
             }
@@ -182,11 +183,13 @@ export const runImageEditing = async (image: File | string, settings: Settings, 
     console.error("Image generation failed. Full API response:", JSON.stringify(response, null, 2));
     
     const finishReason = candidate?.finishReason;
+    const reasonStr = String(finishReason); // Normalize to string to catch 'IMAGE_OTHER'
+
     let errorMessage = 'No image was generated.';
-    if (finishReason === FinishReason.SAFETY) {
+    if (finishReason === FinishReason.SAFETY || reasonStr === 'SAFETY') {
         errorMessage = 'Image generation failed due to safety policies. Please try a different image or prompt.';
-    } else if (finishReason === FinishReason.RECITATION || finishReason === FinishReason.OTHER) {
-        errorMessage = `Image generation failed (${finishReason}). This can happen with complex instructions. Try simplifying the theme or using a different image.`;
+    } else if (finishReason === FinishReason.RECITATION || finishReason === FinishReason.OTHER || reasonStr === 'IMAGE_OTHER' || reasonStr === 'OTHER') {
+        errorMessage = `Image generation blocked by the model (Reason: ${reasonStr}). This often happens with images of people if the model perceives a policy risk in modifying them. Try a different image or a simpler prompt.`;
     } else if (finishReason && finishReason !== FinishReason.STOP) {
         errorMessage = `Image generation failed with reason: ${finishReason}.`
     }
@@ -344,15 +347,23 @@ export const applyAIFilter = async (image: File | string, filterPrompt: string, 
         throw new Error(message);
     }
     
-    const resultPart = editResponse.candidates?.[0]?.content?.parts?.[0];
+    const candidate = editResponse.candidates?.[0];
+    const resultPart = candidate?.content?.parts?.[0];
     const imageUrl = resultPart?.inlineData ? `data:${resultPart.inlineData.mimeType};base64,${resultPart.inlineData.data}` : null;
     
     if (!imageUrl) {
-        const finishReason = editResponse.candidates?.[0]?.finishReason;
-        if(finishReason && finishReason !== FinishReason.STOP) {
-            throw new Error(`Applying AI filter failed. The model stopped with reason: ${finishReason}.`);
+        const finishReason = candidate?.finishReason;
+        const reasonStr = String(finishReason);
+
+        let errorMessage = 'No image was generated for the filter.';
+        if (finishReason === FinishReason.SAFETY || reasonStr === 'SAFETY') {
+            errorMessage = 'Filter application failed due to safety policies. Please try a different image.';
+        } else if (reasonStr === 'IMAGE_OTHER' || reasonStr === 'OTHER') {
+            errorMessage = `Filter application blocked (Reason: ${reasonStr}). Try using a different image or a standard filter.`;
+        } else if (finishReason && finishReason !== FinishReason.STOP) {
+            errorMessage = `Applying AI filter failed with reason: ${finishReason}.`;
         }
-        throw new Error('No image was generated for the filter.');
+        throw new Error(errorMessage);
     }
 
     return {
@@ -395,15 +406,23 @@ export const generateCollage = async (images: File[], theme: string, useProModel
         throw new Error(message);
     }
 
-    const resultPart = collageResponse.candidates?.[0]?.content?.parts?.[0];
+    const candidate = collageResponse.candidates?.[0];
+    const resultPart = candidate?.content?.parts?.[0];
     const imageUrl = resultPart?.inlineData ? `data:${resultPart.inlineData.mimeType};base64,${resultPart.inlineData.data}` : null;
 
     if (!imageUrl) {
-        const finishReason = collageResponse.candidates?.[0]?.finishReason;
-        if(finishReason && finishReason !== FinishReason.STOP) {
-            throw new Error(`Collage generation failed. The model stopped with reason: ${finishReason}.`);
+        const finishReason = candidate?.finishReason;
+        const reasonStr = String(finishReason);
+        let errorMessage = 'No collage was generated.';
+        
+        if (finishReason === FinishReason.SAFETY || reasonStr === 'SAFETY') {
+            errorMessage = 'Collage generation failed due to safety policies. Please check your source images.';
+        } else if (reasonStr === 'IMAGE_OTHER' || reasonStr === 'OTHER') {
+            errorMessage = `Collage generation blocked (Reason: ${reasonStr}). The model could not process the combination of images/theme.`;
+        } else if (finishReason && finishReason !== FinishReason.STOP) {
+            errorMessage = `Collage generation failed with reason: ${finishReason}.`;
         }
-        throw new Error('No collage was generated.');
+        throw new Error(errorMessage);
     }
 
     return {

@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import type { Settings, EditMode, AspectRatio } from '../types';
 import { SparklesIcon, ScissorsIcon, WandIcon, InvertColorsIcon } from './IconComponents';
@@ -84,7 +83,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ t, settings, setSe
   const isLaserEngrave = selectedFilter.startsWith(t.filterOptions.laserEngrave);
 
   return (
-    <div className="bg-gray-800 rounded-2xl p-6 space-y-6 sticky top-24">
+    <div className="bg-gray-800 rounded-2xl p-6 space-y-6 relative lg:sticky lg:top-24 z-40">
       <fieldset disabled={disabled && !isFilterApplyDisabled} className="space-y-6">
         <div>
           <h3 className="text-lg font-semibold mb-3 flex items-center">

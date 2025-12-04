@@ -39,6 +39,27 @@ export const translations = {
     switchToFree: 'Switch to Free Mode',
     switchToPro: 'Switch to Pro Mode',
 
+    // How It Works / Infographic
+    infographicTitle: 'Workflow Overview',
+    nodeUpload: '1. Upload Images',
+    nodeUploadDesc: 'Drag-and-drop or select files',
+    nodeEngine: 'Gemini AI Engine',
+    nodeBatch: '2. Batch Editing & Enhancements',
+    nodeCreative: '3. Creative Tools',
+    nodeContent: '4. Content Generation',
+    nodeReview: '5. Review & Download',
+    
+    // Node Details
+    batchDetail1: 'Cleanup Only',
+    batchDetail2: 'Remove Background',
+    batchDetail3: 'Themed Background',
+    creativeDetail1: 'Auto-Crop Engine',
+    creativeDetail2: 'AI Filters',
+    contentDetail1: 'Collage Creator',
+    contentDetail2: 'Social Post Generator',
+    contentDetail3: 'MakerWorld Generator',
+    reviewDetail: 'Results Viewer',
+
     // SettingsPanel.tsx
     editingMode: '1. Editing Mode',
     cleanupOnly: 'Cleanup Only',
@@ -237,7 +258,7 @@ export const translations = {
     description: 'Description',
     copyDescription: 'Copy Description',
     communityPost: 'Community Post',
-    copyPost: 'Copy Post',
+    copyPost: 'Copia Post',
 
     // Craft Mode
     craftType: 'Craft Type',
@@ -283,6 +304,27 @@ export const translations = {
     upgradeToPro: 'Passa a Pro',
     switchToFree: 'Passa a Modalità Gratuita',
     switchToPro: 'Passa a Modalità Pro',
+
+    // How It Works / Infographic
+    infographicTitle: 'Panoramica del Flusso di Lavoro',
+    nodeUpload: '1. Carica Immagini',
+    nodeUploadDesc: 'Trascina o seleziona file',
+    nodeEngine: 'Motore AI Gemini',
+    nodeBatch: '2. Modifica Batch & Miglioramenti',
+    nodeCreative: '3. Strumenti Creativi',
+    nodeContent: '4. Generazione Contenuti',
+    nodeReview: '5. Revisione & Download',
+    
+    // Node Details
+    batchDetail1: 'Solo Pulizia',
+    batchDetail2: 'Rimuovi Sfondo',
+    batchDetail3: 'Sfondo a Tema',
+    creativeDetail1: 'Motore Ritaglio Auto',
+    creativeDetail2: 'Filtri AI',
+    contentDetail1: 'Creatore Collage',
+    contentDetail2: 'Generatore Post Social',
+    contentDetail3: 'Generatore MakerWorld',
+    reviewDetail: 'Visualizzatore Risultati',
 
     // SettingsPanel.tsx
     editingMode: '1. Modalità di Modifica',

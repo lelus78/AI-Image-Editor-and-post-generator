@@ -9,7 +9,7 @@ import { SocialPostGenerator } from './components/SocialPostGenerator';
 import { MakerWorldPostGenerator } from './components/MakerWorldPostGenerator';
 import { Loader } from './components/Loader';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
-import { UploadIcon, TrashIcon, PlusIcon, UndoIcon, XCircleIcon } from './components/IconComponents';
+import { UploadIcon, TrashIcon, PlusIcon, UndoIcon, XCircleIcon, WandIcon, SparklesIcon, RocketIcon, CubeIcon, ScissorsIcon, DownloadIcon, BrainIcon } from './components/IconComponents';
 import type { Settings, ImageResult, SocialPost, MakerWorldPost, CraftMode } from './types';
 import { runImageEditing, runAutoCrop, applyAIFilter, generateCollage, generateSocialPosts, generateImageReport, generateMakerWorldPost } from './services/geminiService';
 import { usePersistentState } from './hooks/usePersistentState';
@@ -634,7 +634,7 @@ const App: React.FC = () => {
     return (
         <div className="bg-gray-900 text-white min-h-screen font-sans">
             <input {...getInputProps()} />
-            <header className="bg-gray-800/50 backdrop-blur-sm sticky top-0 z-10 p-4 border-b border-gray-700">
+            <header className="bg-gray-800/50 backdrop-blur-sm sticky top-0 z-40 p-4 border-b border-gray-700">
                 <div className="container mx-auto flex justify-between items-center">
                     <div className="flex items-center gap-3">
                          <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-500">{t.appTitle}</h1>
@@ -737,13 +737,151 @@ const App: React.FC = () => {
             
             <main className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
                 {images.length === 0 ? (
-                    <div {...getRootProps()} onClick={open} className={`mt-10 flex justify-center px-6 pt-12 pb-12 border-2 border-gray-600 border-dashed rounded-2xl cursor-pointer hover:border-indigo-500 transition-colors ${isDragActive ? 'border-indigo-500 bg-gray-800' : ''}`}>
-                        <div className="text-center">
-                            <UploadIcon className="mx-auto h-12 w-12 text-gray-500" />
-                            <h3 className="mt-2 text-lg font-semibold text-gray-300">{t.uploadTitle}</h3>
-                            <p className="mt-1 text-sm text-gray-500">{t.uploadSubtitle}</p>
+                    <>
+                        <div {...getRootProps()} onClick={open} className={`mt-10 flex flex-col items-center justify-center py-16 px-6 border-2 border-gray-600 border-dashed rounded-3xl cursor-pointer hover:border-indigo-500 hover:bg-gray-800/30 transition-all duration-300 group ${isDragActive ? 'border-indigo-500 bg-gray-800' : ''}`}>
+                            <div className="bg-gray-800 p-6 rounded-full group-hover:bg-indigo-600/20 group-hover:text-indigo-400 transition-colors mb-4">
+                                <UploadIcon className="h-12 w-12 text-gray-400 group-hover:text-indigo-400 transition-colors" />
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-200 group-hover:text-white transition-colors">{t.uploadTitle}</h3>
+                            <p className="mt-2 text-sm text-gray-500 group-hover:text-gray-400">{t.uploadSubtitle}</p>
                         </div>
-                    </div>
+
+                        {/* Updated Flow Chart Infographic */}
+                        <div className="mt-16 w-full max-w-6xl mx-auto">
+                            <h3 className="text-3xl font-bold text-center mb-16 text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 tracking-tight">
+                                {t.infographicTitle}
+                            </h3>
+
+                            {/* Main Flex Container */}
+                            <div className="flex flex-col xl:flex-row items-center justify-center gap-0">
+                                
+                                {/* Node 1: Upload */}
+                                <div className="z-10 w-64 flex-shrink-0">
+                                    <div className="bg-gray-800/80 backdrop-blur-md border border-gray-700 p-6 rounded-2xl shadow-xl hover:border-indigo-500/50 transition-all duration-300 relative group">
+                                         <div className="absolute -top-3 left-6 bg-gray-700 text-[10px] font-bold px-2 py-0.5 rounded text-gray-300 border border-gray-600 uppercase tracking-wide">Step 1</div>
+                                        <div className="flex flex-col items-center text-center space-y-3">
+                                            <div className="p-3 bg-gray-900 rounded-full text-indigo-400 shadow-inner group-hover:scale-110 transition-transform duration-300">
+                                                <UploadIcon className="w-8 h-8" />
+                                            </div>
+                                            <h4 className="font-bold text-white text-lg">{t.nodeUpload}</h4>
+                                            <p className="text-xs text-gray-400">{t.nodeUploadDesc}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Connector: Upload -> Brain (Desktop) */}
+                                <div className="hidden xl:flex items-center w-24 -mx-1 z-0 relative">
+                                    <div className="h-0.5 w-full bg-gradient-to-r from-gray-700 to-indigo-600/50 relative overflow-hidden">
+                                         <div className="absolute top-0 left-0 h-full w-full bg-gradient-to-r from-transparent via-white/50 to-transparent w-1/2 animate-shimmer"></div>
+                                    </div>
+                                    <svg className="w-5 h-5 text-indigo-500 -ml-1.5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
+                                </div>
+                                
+                                {/* Connector: Upload -> Brain (Mobile) */}
+                                <div className="xl:hidden h-8 border-l-2 border-dashed border-indigo-500/30 my-2"></div>
+
+                                {/* Node 2: AI Brain */}
+                                <div className="z-20 my-2 xl:my-0 flex-shrink-0">
+                                    <div className="w-40 h-40 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-3xl flex items-center justify-center shadow-[0_0_40px_rgba(79,70,229,0.3)] hover:shadow-[0_0_60px_rgba(79,70,229,0.5)] transition-shadow duration-500 border-4 border-gray-900 relative">
+                                        <div className="text-center">
+                                            <BrainIcon className="w-16 h-16 text-white mx-auto drop-shadow-lg animate-pulse-slow" />
+                                            <div className="text-xs font-bold text-white mt-2 tracking-wider uppercase opacity-90">Gemini AI</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Connector: Brain -> Features (Desktop Split) */}
+                                <div className="hidden xl:block w-32 h-[320px] relative -ml-1">
+                                    <svg className="absolute top-0 left-0 w-full h-full" preserveAspectRatio="none">
+                                        {/* Top Path */}
+                                        <path d="M0,160 C50,160 50,53 128,53" fill="none" stroke="url(#gradSplit1)" strokeWidth="2" strokeDasharray="6 4" className="animate-flow-slow" />
+                                        {/* Middle Path */}
+                                        <path d="M0,160 C50,160 50,160 128,160" fill="none" stroke="url(#gradSplit2)" strokeWidth="2" strokeDasharray="6 4" className="animate-flow-slow" />
+                                        {/* Bottom Path */}
+                                        <path d="M0,160 C50,160 50,266 128,266" fill="none" stroke="url(#gradSplit3)" strokeWidth="2" strokeDasharray="6 4" className="animate-flow-slow" />
+                                        
+                                        <defs>
+                                            <linearGradient id="gradSplit1" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#4F46E5" stopOpacity="1" /><stop offset="100%" stopColor="#4F46E5" stopOpacity="0.3" /></linearGradient>
+                                            <linearGradient id="gradSplit2" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#4F46E5" stopOpacity="1" /><stop offset="100%" stopColor="#EC4899" stopOpacity="0.3" /></linearGradient>
+                                            <linearGradient id="gradSplit3" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#4F46E5" stopOpacity="1" /><stop offset="100%" stopColor="#06B6D4" stopOpacity="0.3" /></linearGradient>
+                                        </defs>
+                                    </svg>
+                                </div>
+
+                                {/* Connector: Brain -> Features (Mobile) */}
+                                <div className="xl:hidden h-8 border-l-2 border-dashed border-indigo-500/30 my-2"></div>
+
+                                {/* Node Group 3: Features */}
+                                <div className="flex flex-col gap-6 w-full xl:w-80 flex-shrink-0">
+                                    {/* Feature 1 */}
+                                    <div className="bg-gray-800/60 backdrop-blur border border-gray-700 p-4 rounded-xl flex items-center gap-4 hover:bg-gray-800 hover:border-indigo-500/30 transition-all duration-300 group h-[90px]">
+                                         <div className="p-2.5 bg-indigo-900/30 rounded-lg text-indigo-400 group-hover:text-indigo-300 group-hover:bg-indigo-900/50 transition-colors"><ScissorsIcon className="w-5 h-5" /></div>
+                                         <div className="flex-1">
+                                             <h5 className="font-bold text-gray-200 text-sm mb-1">{t.nodeBatch}</h5>
+                                             <div className="text-[10px] text-gray-500 leading-tight">{t.batchDetail1}, {t.batchDetail2}</div>
+                                         </div>
+                                    </div>
+                                    {/* Feature 2 */}
+                                    <div className="bg-gray-800/60 backdrop-blur border border-gray-700 p-4 rounded-xl flex items-center gap-4 hover:bg-gray-800 hover:border-pink-500/30 transition-all duration-300 group h-[90px]">
+                                         <div className="p-2.5 bg-pink-900/30 rounded-lg text-pink-400 group-hover:text-pink-300 group-hover:bg-pink-900/50 transition-colors"><WandIcon className="w-5 h-5" /></div>
+                                         <div className="flex-1">
+                                             <h5 className="font-bold text-gray-200 text-sm mb-1">{t.nodeCreative}</h5>
+                                              <div className="text-[10px] text-gray-500 leading-tight">{t.creativeDetail1}, {t.creativeDetail2}</div>
+                                         </div>
+                                    </div>
+                                    {/* Feature 3 */}
+                                    <div className="bg-gray-800/60 backdrop-blur border border-gray-700 p-4 rounded-xl flex items-center gap-4 hover:bg-gray-800 hover:border-cyan-500/30 transition-all duration-300 group h-[90px]">
+                                         <div className="p-2.5 bg-cyan-900/30 rounded-lg text-cyan-400 group-hover:text-cyan-300 group-hover:bg-cyan-900/50 transition-colors"><RocketIcon className="w-5 h-5" /></div>
+                                         <div className="flex-1">
+                                             <h5 className="font-bold text-gray-200 text-sm mb-1">{t.nodeContent}</h5>
+                                             <div className="text-[10px] text-gray-500 leading-tight">{t.contentDetail1}, {t.contentDetail2}</div>
+                                         </div>
+                                    </div>
+                                </div>
+
+                                {/* Connector: Features -> Download (Desktop Merge) */}
+                                <div className="hidden xl:block w-24 h-[320px] relative -mx-1">
+                                    <svg className="absolute top-0 left-0 w-full h-full" preserveAspectRatio="none">
+                                        {/* Top Path */}
+                                        <path d="M0,53 C50,53 50,160 100,160" fill="none" stroke="#374151" strokeWidth="2" />
+                                        {/* Middle Path */}
+                                        <path d="M0,160 C50,160 50,160 100,160" fill="none" stroke="#374151" strokeWidth="2" />
+                                        {/* Bottom Path */}
+                                        <path d="M0,266 C50,266 50,160 100,160" fill="none" stroke="#374151" strokeWidth="2" />
+                                    </svg>
+                                    <div className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-1/2 z-10 text-gray-600 bg-gray-900 rounded-full">
+                                         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
+                                    </div>
+                                </div>
+                                
+                                {/* Connector: Features -> Download (Mobile) */}
+                                <div className="xl:hidden h-8 border-l-2 border-dashed border-indigo-500/30 my-2"></div>
+
+                                {/* Node 5: Final */}
+                                <div className="z-10 w-64 flex-shrink-0 mt-2 xl:mt-0 ml-0 xl:ml-4">
+                                    <div className="bg-gray-800/80 backdrop-blur-md border border-gray-700 p-6 rounded-2xl shadow-xl hover:border-emerald-500/50 transition-all duration-300 relative group">
+                                         <div className="absolute -top-3 right-6 bg-gray-700 text-[10px] font-bold px-2 py-0.5 rounded text-gray-300 border border-gray-600 uppercase tracking-wide">Step 5</div>
+                                        <div className="flex flex-col items-center text-center space-y-3">
+                                            <div className="p-3 bg-gray-900 rounded-full text-emerald-400 shadow-inner group-hover:scale-110 transition-transform duration-300">
+                                                <DownloadIcon className="w-8 h-8" />
+                                            </div>
+                                            <h4 className="font-bold text-white text-lg">{t.nodeReview}</h4>
+                                            <p className="text-xs text-gray-400">{t.reviewDetail}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                            
+                            <style>{`
+                                .animate-pulse-slow { animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+                                .animate-flow-slow { stroke-dasharray: 8 4; animation: flow 20s linear infinite; }
+                                .animate-shimmer { animation: shimmer 2s linear infinite; }
+                                @keyframes flow { from { stroke-dashoffset: 200; } to { stroke-dashoffset: 0; } }
+                                @keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(200%); } }
+                            `}</style>
+                        </div>
+                    </>
                 ) : (
                     <>
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
@@ -777,6 +915,16 @@ const App: React.FC = () => {
                             </div>
                         </div>
                         
+                        <ImageThumbnailStrip 
+                            t={t}
+                            images={images} 
+                            currentIndex={currentIndex} 
+                            onSelect={setCurrentIndex} 
+                            disabled={isAnythingProcessing}
+                            selectedIndices={selectedCollageIndices}
+                            onToggleSelection={handleToggleCollageSelection}
+                        />
+
                         <CollageCreator 
                             t={t}
                             theme={collageTheme}
@@ -814,27 +962,12 @@ const App: React.FC = () => {
                     </>
                 )}
                  {error && (
-                    <div className="bg-red-900/50 border border-red-700 text-red-300 p-4 rounded-lg text-center">
-                        <p className="font-bold">{error}</p>
+                    <div className="bg-red-900/50 border border-red-700 text-red-300 p-4 rounded-lg text-sm fixed bottom-4 right-4 z-[100] max-w-md shadow-lg animate-fade-in">
+                        <strong>Error:</strong> {error}
+                        <button onClick={() => setError(null)} className="ml-2 underline float-right hover:text-white">Dismiss</button>
                     </div>
-                 )}
+                )}
             </main>
-
-            {images.length > 0 && (
-                <footer className="sticky bottom-0 bg-gray-900/80 backdrop-blur-sm p-4 border-t border-gray-800">
-                    <div className="container mx-auto">
-                        <ImageThumbnailStrip 
-                            t={t}
-                            images={images} 
-                            currentIndex={currentIndex} 
-                            onSelect={setCurrentIndex}
-                            disabled={isAnythingProcessing}
-                            selectedIndices={selectedCollageIndices}
-                            onToggleSelection={handleToggleCollageSelection}
-                        />
-                    </div>
-                </footer>
-            )}
         </div>
     );
 };

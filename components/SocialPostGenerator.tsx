@@ -112,11 +112,14 @@ export const SocialPostGenerator: React.FC<SocialPostGeneratorProps> = ({ t, onG
                 <p className="text-sm text-gray-300 whitespace-pre-wrap flex-grow">{post.content}</p>
                 {post.musicSuggestions && post.musicSuggestions.length > 0 && (
                   <div className="mt-4 border-t border-gray-700 pt-3">
-                    <h6 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
-                        <MusicNoteIcon className="w-4 h-4" />
-                        {t.musicSuggestions}
-                    </h6>
-                    <ul className="text-xs text-gray-400 mt-2 space-y-1">
+                    <div className="flex justify-between items-center mb-2">
+                        <h6 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                            <MusicNoteIcon className="w-4 h-4" />
+                            {t.musicSuggestions}
+                        </h6>
+                        <button onClick={() => copyToClipboard(post.musicSuggestions!.join('\n'))} className="text-xs text-gray-400 hover:text-white">{t.copy}</button>
+                    </div>
+                    <ul className="text-xs text-gray-400 space-y-1">
                       {post.musicSuggestions.map((song, i) => <li key={i} className="pl-2">{song}</li>)}
                     </ul>
                   </div>
